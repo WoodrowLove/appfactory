@@ -92,7 +92,7 @@ Shows all projects across all states.
 │  │ RoutineRest                           Score: 9.0│   │
 │  │ Health & Fitness · Sleep habits                  │   │
 │  │                                                  │   │
-│  │ ████████████████████░░░░░  PACKAGING  (7/9)     │   │
+│  │ ████████████████████░░░░░  PACKAGING  (7/10)    │   │
 │  │                                                  │   │
 │  │ Research ✓  Validate ✓  Spec ✓  Build ✓         │   │
 │  │ Review ✓  Monetize ✓  Package ●  Ship ○         │   │
@@ -102,7 +102,7 @@ Shows all projects across all states.
 │  │ FocusTimer                            Score: 7.2│   │
 │  │ Productivity · Pomodoro + deep work             │   │
 │  │                                                  │   │
-│  │ ██████████████░░░░░░░░░░  REVIEWING  (5/9)     │   │
+│  │ ██████████████░░░░░░░░░░  REVIEWING  (5/10)    │   │
 │  │                                                  │   │
 │  │ ⚠ Failed review 2/3 times            [View →]  │   │
 │  └─────────────────────────────────────────────────┘   │
@@ -111,7 +111,7 @@ Shows all projects across all states.
 │  │ BudgetBuddy                           Score: 8.4│   │
 │  │ Personal Finance · Expense tracking              │   │
 │  │                                                  │   │
-│  │ █████████████████████████  READY TO SHIP (9/9)  │   │
+│  │ █████████████████████████  READY TO SHIP (10/10)│   │
 │  │                                                  │   │
 │  │ [Approve for Submission]                         │   │
 │  └─────────────────────────────────────────────────┘   │
@@ -123,7 +123,7 @@ Shows all projects across all states.
 
 **Project card elements:**
 - App name and category
-- Progress bar showing current phase (out of 9)
+- Progress bar showing current phase (out of 10)
 - Quality score (from Reviewer)
 - Phase indicators (checkmark for complete, dot for current, circle for pending)
 - Warning indicators for flagged items
@@ -190,6 +190,8 @@ Tapping a project card expands into the full one-pager.
 │  Gate 4 (UI/UX): 9/10                                  │
 │  Gate 5 (Compliance): 10/10                            │
 │  Gate 6 (Code Quality): 8/10                           │
+│  Gate 7 (Test Coverage): 9/10                           │
+│  Gate 8 (Monetization UX): 10/10                        │
 │                                                        │
 │  TIMELINE                                              │
 │  Research: Mar 1, 10:00 AM (24 min)                    │
@@ -303,7 +305,7 @@ Where you submit app ideas into the pipeline.
 Full history of every action taken by every agent.
 
 **Filterable by:**
-- Agent (Router, Scout, Architect, Builder, Reviewer, Shipper, Marketer)
+- Agent (Router, Scout, Architect, Builder, Linter, Reviewer, Shipper, Marketer)
 - Project
 - Date range
 - Event type (phase transition, quality score, error, human action)

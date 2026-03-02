@@ -44,6 +44,12 @@ Every project has a `state.json` that tracks its lifecycle:
       "duration_seconds": 4320,
       "compilation_success": true
     },
+    "lint": {
+      "completed_at": "2026-03-01T12:30:00Z",
+      "duration_seconds": 240,
+      "issues_found": 3,
+      "issues_fixed": 3
+    },
     "review": {
       "completed_at": "2026-03-01T12:44:00Z",
       "duration_seconds": 1080,
@@ -96,12 +102,14 @@ Every project has a `state.json` that tracks its lifecycle:
 
 ## State Transitions
 
+**Phase naming convention:** The `phase` field uses **gerund form** ("building", "reviewing", "linting") to indicate an active, in-progress state. The `phases_completed` keys use **base form** ("build", "review", "lint") to indicate a completed milestone. For example, when the Builder is active, `phase` is `"building"`, and when it finishes, the result is recorded under `phases_completed.build`.
+
 Every phase transition updates `state.json`:
 
 ```
-phase: "research" → "validation" → "spec" → "building" → "reviewing" →
-       "monetizing" → "packaging" → "ready_to_ship" → "in_review" →
-       "approved" → "live"
+phase: "research" → "validation" → "spec" → "building" → "linting" →
+       "reviewing" → "monetizing_and_packaging" → "ready_to_ship" →
+       "in_review" → "approved" → "live"
 
 Special states:
   "revising"    — Failed review, Builder is fixing
@@ -196,7 +204,7 @@ CREATE TABLE revenue (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_slug TEXT NOT NULL,
     event_type TEXT NOT NULL,       -- 'trial_start', 'conversion', 'renewal', 'cancellation', 'refund'
-    amount REAL,
+    amount INTEGER,                  -- cents (e.g., 499 = $4.99) for financial precision
     currency TEXT DEFAULT 'USD',
     subscriber_id TEXT,
     timestamp TEXT NOT NULL DEFAULT (datetime('now'))
@@ -334,12 +342,12 @@ Common queries the Control Panel makes:
 
 ```sql
 -- Active projects
-SELECT * FROM ideas WHERE status = 'in_pipeline'
-  UNION
-SELECT slug, category FROM (
-  SELECT json_extract(readfile('projects/' || slug || '/state.json'), '$.phase') as phase
-  FROM ideas WHERE status = 'in_pipeline'
-);
+-- NOTE: Reading state.json requires application-level file I/O.
+-- The readfile() function is NOT built into SQLite; it requires the
+-- "fileio" extension (https://www.sqlite.org/loadext.html).
+-- In practice, the Control Panel reads state.json via Node.js fs and
+-- joins the data in application code rather than inside SQL.
+SELECT * FROM ideas WHERE status = 'in_pipeline';
 
 -- Monthly revenue
 SELECT SUM(amount) as mrr

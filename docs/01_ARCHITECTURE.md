@@ -26,15 +26,16 @@ AppFactory is a **multi-agent, cron-driven pipeline** that transforms market res
 │  ┌──────────────────────────────────────────────────────────────┐   │
 │  │                    ORCHESTRATOR (Router)                      │   │
 │  │              OpenClaw + Sonnet 4.6                            │   │
-│  │              Cron: every 5 minutes                            │   │
+│  │              Adaptive polling (1 min active / 15 min idle /    │   │
+│  │              5 min default) + event-driven webhooks on :3002  │   │
 │  │              Reads: projects/*/state.json                     │   │
 │  │              Spawns: Claude Code sessions per phase           │   │
 │  └──────┬──────────┬──────────┬──────────┬──────────┬───────────┘   │
 │         │          │          │          │          │                │
-│  ┌──────▼───┐ ┌────▼────┐ ┌──▼───┐ ┌────▼────┐ ┌──▼──────┐       │
-│  │  Scout   │ │Architect│ │Builder│ │Reviewer │ │ Shipper │       │
-│  │ (Sonnet) │ │ (Opus)  │ │(Opus) │ │(Codex)  │ │(Sonnet) │       │
-│  └──────┬───┘ └────┬────┘ └──┬───┘ └────┬────┘ └──┬──────┘       │
+│  ┌──────▼───┐ ┌────▼────┐ ┌──▼───┐ ┌──▼────┐ ┌────▼────┐ ┌──▼──────┐ │
+│  │  Scout   │ │Architect│ │Builder│ │Linter │ │Reviewer │ │ Shipper │ │
+│  │ (Sonnet) │ │ (Opus)  │ │(Opus) │ │(Haiku)│ │(Codex)  │ │(Sonnet) │ │
+│  └──────┬───┘ └────┬────┘ └──┬───┘ └──┬────┘ └────┬────┘ └──┬──────┘ │
 │         │          │          │          │          │    ┌─────────┐ │
 │         │          │          │          │          │    │Marketer │ │
 │         │          │          │          │          │    │ (Opus)  │ │
@@ -69,7 +70,7 @@ AppFactory is a **multi-agent, cron-driven pipeline** that transforms market res
 
 ### 1. Orchestrator (Router)
 
-The brain of the system. Runs as an OpenClaw cron job every 5 minutes.
+The brain of the system. Runs on adaptive polling (1 min active / 15 min idle / 5 min default) with event-driven webhook transitions on port 3002.
 
 **Responsibilities:**
 - Read all `projects/*/state.json` files
@@ -112,15 +113,23 @@ Takes validated research and produces a comprehensive one-pager: target user, pa
 
 Generates the full Xcode project. Receives the spec, templates for common patterns (payments, onboarding, AI wrapper), and coding standards. Produces a complete, compilable SwiftUI application.
 
-### 5. Reviewer Agent
+### 5. Linter Agent
+
+**Model**: Claude Haiku 4
+**Phase**: Lint (between Build and Review)
+**Context**: Source code + one-pager spec
+
+Runs a fast, cheap lint pass after the Builder produces code and Gate 0 (compilation) passes. Checks 7 categories: force unwraps, missing permissions, dead code, force casts, missing restore purchases, missing privacy manifest, and placeholder content. Produces a structured lint report. Hard failures send the project back to REVISING; soft failures are forwarded to the Reviewer as advisory notes.
+
+### 6. Reviewer Agent
 
 **Model**: GPT-5.3-Codex
 **Phase**: Review
 **Context**: Full source code + quality rubric
 
-Independently reads every file the Builder produced. Runs 6 automated quality checks. Produces a structured quality report with a score out of 10. This agent never sees the Builder's reasoning — it evaluates the output cold.
+Independently reads every file the Builder produced. Runs 8 scored quality gates + Gate 0 compilation check. Produces a structured quality report with a score out of 10. This agent never sees the Builder's reasoning — it evaluates the output cold.
 
-### 6. Shipper Agent
+### 7. Shipper Agent
 
 **Model**: Sonnet 4.6
 **Phase**: Monetize + Package + Ship
@@ -128,7 +137,7 @@ Independently reads every file the Builder produced. Runs 6 automated quality ch
 
 Handles the entire post-build pipeline: StoreKit configuration, Fastlane setup, screenshot generation, icon generation (Nano Banana Pro), App Store listing copy, and submission.
 
-### 7. Marketer Agent
+### 8. Marketer Agent
 
 **Model**: Opus 4.6 (creative) + gpt-image-1.5 (visuals)
 **Phase**: Market (runs in parallel with other phases)
@@ -167,6 +176,19 @@ Generates social media content, manages posting schedules via Postiz, creates pr
                     └────────┬────────┘
                              │
                     ┌────────▼────────┐
+                    │  LINTER AGENT   │
+                    │                 │
+                    │ Output:         │
+                    │ lint_report.json│
+                    └────────┬────────┘
+                             │
+                      Pass / soft_fail?
+                      ┌──────┴──────┐
+                      │ YES         │ hard_fail
+                      ▼             ▼
+                      │        Back to BUILD
+                      │
+                    ┌─────────▼───────┐
                     │ REVIEWER AGENT  │
                     │                 │
                     │ Output:         │
@@ -225,7 +247,11 @@ Every project follows this state machine:
         │          ┌─────▼──────┐
         │          │  BUILDING   │
         │          └─────┬──────┘
-        │                │ (build complete)
+        │                │ (build complete + Gate 0 passes)
+        │          ┌─────▼──────┐
+        │          │  LINTING    │
+        │          └─────┬──────┘
+        │                │ (lint pass or soft_fail)
         │          ┌─────▼──────┐
         │     ┌────│ REVIEWING   │────┐
         │     │    └─────────────┘    │
@@ -279,13 +305,15 @@ appfactory/
 ├── config/
 │   ├── openclaw.yaml                 # Orchestrator configuration
 │   ├── cron.json                     # Cron schedule
-│   └── models.yaml                   # Model assignments per agent
+│   ├── models.yaml                   # Model assignments per agent
+│   └── budget.json                   # Per-agent budget limits and tracking
 ├── docs/                             # This documentation
 ├── prompts/
 │   ├── router.md                     # Orchestrator system prompt
 │   ├── scout.md                      # Research agent prompt
 │   ├── architect.md                  # Spec agent prompt
 │   ├── builder.md                    # Build agent prompt
+│   ├── linter.md                     # Lint agent prompt
 │   ├── reviewer.md                   # Review agent prompt
 │   ├── shipper.md                    # Ship agent prompt
 │   └── marketer.md                   # Marketing agent prompt
@@ -316,6 +344,7 @@ appfactory/
 │       ├── spec.md                   # Architect output (one-pager)
 │       ├── onepager.json             # Structured one-pager data
 │       ├── src/                      # Builder output (Xcode project)
+│       ├── lint_report.json          # Linter output
 │       ├── quality.json              # Reviewer output
 │       ├── assets/
 │       │   ├── icon.png              # Generated app icon
@@ -378,7 +407,7 @@ The v1 design is intentionally simple. Ship the pipeline first, optimize later.
 - **Apple Search Ads API**: Keyword research and competition data
 
 ### AI Models
-- **Anthropic API**: Claude Opus 4.6 (build, architect, marketing), Sonnet 4.6 (routing, shipping, research)
+- **Anthropic API**: Claude Opus 4.6 (build, architect, marketing), Sonnet 4.6 (routing, shipping, research), Haiku 4 (linting)
 - **OpenAI API**: GPT-5.3-Codex (code review)
 - **Google AI**: Gemini Flash (in-app AI wrapper), Nano Banana Pro (icon generation)
 

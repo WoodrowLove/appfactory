@@ -205,45 +205,64 @@ The default `paywall_strategy` in `onepager.json` should be `"hybrid"`:
 
 This hybrid approach maximizes both awareness (onboarding) and conversion (contextual).
 
-### PremiumFeatureButton Modifier
+### Premium Gate View Modifier
 
 ```swift
-// PremiumFeatureButton.swift
-struct PremiumFeatureButton<Label: View>: ViewModifier {
+// PremiumGate.swift
+struct PremiumGate: ViewModifier {
     @Environment(StoreKitService.self) var store
     @State private var showPaywall = false
 
-    let label: Label
-    let premiumAction: () -> Void
-
-    init(@ViewBuilder label: () -> Label, premiumAction: @escaping () -> Void) {
-        self.label = label()
-        self.premiumAction = premiumAction
-    }
+    let feature: String
+    let description: String
 
     func body(content: Content) -> some View {
-        Button {
-            if store.hasActiveSubscription {
-                premiumAction()
-            } else {
-                showPaywall = true
+        content
+            .onTapGesture {
+                if store.hasActiveSubscription {
+                    // Allow the tap to pass through (handled by the content itself)
+                } else {
+                    showPaywall = true
+                }
             }
-        } label: {
-            label
-        }
-        .sheet(isPresented: $showPaywall) {
-            PaywallView(source: .contextual)
-        }
+            .overlay {
+                if !store.hasActiveSubscription {
+                    VStack(spacing: 8) {
+                        Image(systemName: "lock.fill")
+                        Text(feature)
+                            .font(.headline)
+                        Text(description)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(.ultraThinMaterial)
+                }
+            }
+            .sheet(isPresented: $showPaywall) {
+                PaywallView(source: .contextual)
+            }
+    }
+}
+
+extension View {
+    func premiumGate(feature: String, description: String = "") -> some View {
+        modifier(PremiumGate(feature: feature, description: description))
     }
 }
 
 // Usage in any view:
-// Button with paywall gate
-PremiumFeatureButton {
-    Label("AI Insights", systemImage: "sparkles")
-} premiumAction: {
+// Gate a view behind premium
+AiInsightsView()
+    .premiumGate(feature: "AI Insights", description: "Unlock smart recommendations")
+
+// Gate a button action
+Button {
     showAIInsights()
+} label: {
+    Label("AI Insights", systemImage: "sparkles")
 }
+.premiumGate(feature: "AI Insights")
 ```
 
 The `PaywallView` receives a `source` parameter (`.onboarding` or `.contextual`) so RevenueCat can track which placement converts better.
@@ -304,8 +323,8 @@ The `onepager.json` schema now includes a `pricing_experiment` field:
     "base_price_monthly": 4.99,
     "pricing_experiment": {
       "enabled": true,
-      "min_installs_to_start": 500,
-      "variants": [3.99, 4.99, 6.99],
+      "min_installs_to_activate": 500,
+      "variants": ["$3.99", "$4.99", "$6.99"],
       "primary_metric": "ltv"
     }
   }

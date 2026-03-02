@@ -13,10 +13,11 @@ This document breaks down how we get there.
 | Metric | Value | Notes |
 |--------|-------|-------|
 | Average subscription price | $4.99/month | Category-weighted average |
-| Apple commission (year 1) | 30% | Small Business Program |
-| Apple commission (year 2+) | 15% | After 12 months of subscriber retention |
-| Net revenue per subscriber (year 1) | $3.49/month | $4.99 × 0.70 |
-| Net revenue per subscriber (year 2+) | $4.24/month | $4.99 × 0.85 |
+| Apple commission (year 1) | 15% | Small Business Program (< $1M annual revenue) reduces standard 30% to 15% |
+| Apple commission (year 2+ per subscriber) | 15% | Auto-renewable subscriptions drop to 15% after a subscriber has been active for 12+ continuous months — this applies to ALL developers regardless of Small Business Program status |
+| Net revenue per subscriber (with SBP) | $4.24/month | $4.99 × 0.85 (15% commission under Small Business Program) |
+| Net revenue per subscriber (without SBP, year 1) | $3.49/month | $4.99 × 0.70 (standard 30% commission if SBP no longer applies) |
+| Net revenue per subscriber (without SBP, year 2+) | $4.24/month | $4.99 × 0.85 (15% after 12+ months of continuous subscription) |
 | Average monthly churn | 8-12% | Industry average for utility apps |
 | Average subscriber lifetime | 8-12 months | 1 / churn_rate |
 | Lifetime value (LTV) | $28-$42 | Net revenue × lifetime |
@@ -29,8 +30,8 @@ This document breaks down how we get there.
 | Paywall view rate | 40-60% | % of users who see the paywall |
 | Trial start rate | 25-35% | % of paywall viewers who start trial |
 | Trial-to-paid conversion | 12-18% | % of trials that convert to paid |
-| Steady-state subscribers per app | 20-50 | After 3-6 months |
-| MRR per app | $70-$175 | Net revenue |
+| Steady-state subscribers per app | 50-80 | After 3-6 months (see funnel math below) |
+| MRR per app | $175-$279 | Net revenue |
 
 ### Funnel Math (per app, per month)
 
@@ -67,6 +68,8 @@ Minus churn (10% of existing):
 | 6 | 12 | 8-10 | 500-900 | $1,745-$3,141 |
 | 9 | 18 | 12-15 | 900-1,600 | $3,141-$5,584 |
 | 12 | 24 | 16-20 | 1,400-2,800 | $4,886-$9,772 |
+
+> **Note on projection assumptions:** The subscriber and MRR numbers in this table are conservative estimates that account for staggered launch timing, Apple review delays, gradual organic ramp-up, and the 30% app underperformance rate. They intentionally trail the per-app funnel math (which shows ~80 steady-state subscribers per app) because not all apps reach steady state simultaneously and earlier apps are still ramping while newer ones launch.
 
 **$5,000 MRR target**: Achievable between month 9-12 with conservative assumptions.
 **$10,000 MRR target**: Achievable by month 12-15 if apps perform at the higher end.

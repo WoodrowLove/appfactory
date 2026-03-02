@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AppFactory pipeline has 9 phases. Each phase is owned by one agent. The orchestrator manages transitions between phases. Every phase reads from files and writes to files. No state is stored in conversation history.
+The AppFactory pipeline has 10 phases: RESEARCH, VALIDATE, SPEC, BUILD, LINT, REVIEW, MONETIZE, PACKAGE, SHIP, and MARKET. Each phase is owned by one agent. The orchestrator manages transitions between phases. Every phase reads from files and writes to files. No state is stored in conversation history.
 
 Total time from idea to App Store submission (estimated): **4-8 hours of compute time** spread across the pipeline, depending on complexity and review cycles.
 
@@ -58,7 +58,7 @@ Categories we **avoid**:
 **Duration:** 10-20 minutes per idea
 **Input:** Single idea from `research.json`, existing app catalog, Apple Search Ads data
 **Output:** Updated `research.json` with validation scores
-**Gate:** Combined score >= 21/30
+**Gate:** Four-tier scoring: >= 24 fast-track, 21-23 proceed, 18-20 borderline (human review), < 18 kill
 
 ### What Happens
 
@@ -72,16 +72,24 @@ Categories we **avoid**:
 
 5. **Monetization validation**: Is the proposed price point realistic for this category? Check what competitors charge. Estimate conversion rate based on category benchmarks.
 
-6. **Go/No-Go decision**: If the combined score (demand + competition + feasibility) >= 21, the idea proceeds. If < 21, it goes to the "killed" pile with a documented reason.
+6. **Tiered Go/No-Go decision**: The combined score (demand + competition + feasibility) determines the path forward:
+   - **>= 24: Fast-track** — High-confidence idea. Proceed immediately to Spec with priority scheduling.
+   - **21-23: Proceed normally** — Solid idea. Proceed to Spec in the standard queue.
+   - **18-20: Borderline** — Flag for human review. You review the research data and decide whether to proceed, revise, or kill.
+   - **< 18: Kill** — Insufficient signal. Goes to the "killed" pile with a documented reason.
 
-### Why the threshold is 21/30
+### Why the tiered threshold
 
-A score of 21 means the idea scores at least 7/10 on average across all three dimensions. This filters out:
-- Ideas with high demand but impossible feasibility (score: 10 + 2 + 8 = 20, fail)
-- Ideas that are easy to build but nobody wants (score: 3 + 9 + 9 = 21, barely pass)
-- Ideas in oversaturated markets (score: 8 + 3 + 8 = 19, fail)
+A score of 21 means the idea scores at least 7/10 on average across all three dimensions, which is the minimum bar for automated progression. The four-tier system adds nuance:
+- **Fast-track (24+)** rewards exceptional ideas with faster pipeline throughput
+- **Borderline (18-20)** prevents premature kills on ideas that might succeed with refinement or human insight
+- **Kill (< 18)** filters out clearly unviable ideas without wasting your time
 
-The threshold is intentionally strict. It's better to kill 5 mediocre ideas than to waste build time on one that won't convert.
+Examples:
+- Ideas with high demand but impossible feasibility (score: 10 + 2 + 8 = 20, borderline — human review)
+- Ideas that are easy to build but nobody wants (score: 3 + 9 + 9 = 21, proceed normally)
+- Ideas in oversaturated markets (score: 8 + 3 + 8 = 19, borderline — human review)
+- Strong ideas with clear demand and low competition (score: 9 + 8 + 8 = 25, fast-track)
 
 ---
 
@@ -171,7 +179,7 @@ These templates handle the boilerplate. The Builder focuses on the unique featur
 
 ---
 
-## Phase 4.5: Lint
+## Phase 5: Lint
 
 **Agent:** Linter (Haiku)
 **Duration:** 2-5 minutes
@@ -202,7 +210,7 @@ Haiku is fast and cheap. A lint pass costs ~$0.01-0.03 and takes 2-5 minutes. Ca
 
 ---
 
-## Phase 5: Review
+## Phase 6: Review
 
 **Agent:** Reviewer (GPT-5.3-Codex)
 **Duration:** 10-20 minutes
@@ -212,13 +220,13 @@ Haiku is fast and cheap. A lint pass costs ~$0.01-0.03 and takes 2-5 minutes. Ca
 
 ### What Happens
 
-The Reviewer reads every file in the project and runs 6 independent quality gates. See [Quality Gates](06_QUALITY_GATES.md) for the full specification.
+The Reviewer reads every file in the project and runs 8 independent quality gates. See [Quality Gates](06_QUALITY_GATES.md) for the full specification.
 
 **Key principle:** The Reviewer uses a different model (GPT-5.3-Codex) than the Builder (Opus 4.6). This is intentional. If the same model builds and reviews, it's likely to miss its own patterns of errors. Cross-model review catches more issues.
 
 ### Incremental Review
 
-On attempt 2 and beyond, the Reviewer operates in **incremental mode**. Instead of re-checking all 6 gates from scratch, it only re-evaluates the gates that previously failed or had issues flagged. Gates that scored 9 or 10 with no issues are carried forward from the previous review.
+On attempt 2 and beyond, the Reviewer operates in **incremental mode**. Instead of re-checking all 8 gates from scratch, it only re-evaluates the gates that previously failed or had issues flagged. Gates that scored 8 or above with no issues are carried forward from the previous review.
 
 This cuts revision review time by 50-60% and reduces Reviewer token costs proportionally. The Router signals incremental mode by passing `mode: "incremental"` and the previous `quality.json` to the Reviewer. The Reviewer merges carried-forward gate scores with freshly evaluated gates to produce the updated report.
 
@@ -230,7 +238,7 @@ This cuts revision review time by 50-60% and reduces Reviewer token costs propor
 
 ---
 
-## Phase 6: Monetize
+## Phase 7: Monetize
 
 **Agent:** Shipper (Sonnet 4.6, monetize mode)
 **Duration:** 10-15 minutes
@@ -250,7 +258,7 @@ This cuts revision review time by 50-60% and reduces Reviewer token costs propor
 
 ---
 
-## Phase 7: Package
+## Phase 8: Package
 
 **Agent:** Shipper (Sonnet 4.6, package mode)
 **Duration:** 20-40 minutes
@@ -282,7 +290,7 @@ This cuts revision review time by 50-60% and reduces Reviewer token costs propor
 
 ---
 
-## Phase 8: Ship
+## Phase 9: Ship
 
 **Agent:** Shipper (Sonnet 4.6, submit mode)
 **Duration:** 10-20 minutes (upload time)
@@ -310,7 +318,7 @@ In the Control Panel, you'll see a "Ready to Ship" queue. Tap an app to see its 
 
 ---
 
-## Phase 9: Market
+## Phase 10: Market
 
 **Agent:** Marketer (Opus 4.6 + Larry skill)
 **Duration:** Ongoing (runs on its own schedule)

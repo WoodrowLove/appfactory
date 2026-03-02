@@ -96,6 +96,38 @@ Include **SKAdNetwork** configuration in `Info.plist` for attribution tracking. 
 ```
 This is a zero-cost addition that enables attribution from day one without requiring any runtime code.
 
+### 4e. Write Tests
+Every app must include a test suite in `<AppName>Tests/`. The Reviewer's Gate 7 requires minimum 60% line coverage on model and ViewModel layers.
+
+**What to test:**
+- All model types: initialization, computed properties, edge cases (empty strings, nil values, boundary numbers)
+- All ViewModel logic: state transitions, async operations (using `async` test methods), error handling
+- StoreKit purchase flow (mock `Product` and `Transaction`)
+- Data persistence (if applicable): save/load/delete cycles
+
+**How to organize:**
+```
+<AppName>Tests/
+├── Models/
+│   ├── <Feature>ModelTests.swift
+│   └── ...
+├── ViewModels/
+│   ├── <Feature>ViewModelTests.swift
+│   └── ...
+└── Services/
+    ├── StoreKitServiceTests.swift
+    └── ...
+```
+
+**Test quality rules:**
+- Every test method must have at least one meaningful assertion (`XCTAssertEqual`, `XCTAssertThrowsError`, etc.)
+- No `XCTAssertTrue(true)` padding — every assertion must verify real behavior
+- Test edge cases: empty collections, nil optionals, maximum values, network error simulation
+- Use `@MainActor` for ViewModel tests that touch published properties
+- Name tests descriptively: `test_createRoutine_withEmptyName_throwsValidationError()`
+
+**Minimum bar:** Gate 7 scores 8/10 at 60% model+ViewModel coverage with meaningful assertions. Aim for 70%+ for a score of 9.
+
 ### 5. If the spec calls for AI features
 Use `templates/swiftui/GeminiWrapper.swift`. Never hardcode API keys. Use a secure configuration approach.
 
@@ -104,13 +136,22 @@ Run `xcodebuild build` before declaring complete. Fix any errors. If you cannot 
 
 ## Revision Mode
 
-When called with quality feedback:
-1. Read `quality.json` for specific issues
+When called with quality feedback (`quality.json`):
+1. Read `quality.json` for specific issues per gate
 2. Fix ONLY the flagged issues
 3. Do NOT rewrite code that passed review
 4. Do NOT add features not in the spec
 5. Run compilation check after fixes
 6. Update `state.json` with revision details
+
+When called with lint feedback (`lint_report.json`) instead of `quality.json`:
+1. Read `lint_report.json` — this is a fast pre-review pass, not a full code review
+2. Fix all flagged issues (force unwraps, missing permissions, dead code, force casts, placeholder content, missing restore purchases, missing privacy manifest)
+3. Critical flags (missing restore purchases, missing privacy manifest) MUST be resolved
+4. Run compilation check after fixes
+5. Update `state.json` with revision details
+
+The difference: lint revisions are cheaper and faster than full review revisions. The Linter catches common issues before the expensive Reviewer runs.
 
 ## Rules
 1. The spec is your contract. Implement what it says.

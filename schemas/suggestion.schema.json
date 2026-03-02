@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AppFactory App Suggestion",
+  "description": "Schema for human-submitted app ideas in suggestions/",
+  "type": "object",
+  "required": ["idea", "category", "pain_point", "source"],
+  "properties": {
+    "idea": {
+      "type": "string",
+      "description": "Short name or title for the app idea"
+    },
+    "category": {
+      "type": "string",
+      "enum": ["health-fitness", "productivity", "personal-finance", "lifestyle", "education", "utilities"]
+    },
+    "pain_point": {
+      "type": "string",
+      "description": "The specific user pain point this app would solve"
+    },
+    "target_audience": {
+      "type": "string",
+      "description": "Who would use this app (specific persona, not generic)"
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["normal", "high", "rush"],
+      "default": "normal",
+      "description": "normal: enters queue. high: moved to front of queue. rush: starts immediately, even if it means queuing another project."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional context, competitor references, or feature ideas"
+    },
+    "source": {
+      "type": "string",
+      "enum": ["human", "research"],
+      "default": "human"
+    },
+    "submitted_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

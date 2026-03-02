@@ -25,7 +25,7 @@
 |------|---------|---------|
 | Claude Code | AI agent sessions | `npm install -g @anthropic-ai/claude-code` |
 | OpenClaw | Orchestrator, cron, agent spawning | `npm install -g openclaw@latest` |
-| Fastlane | iOS build automation | `gem install fastlane` |
+| Fastlane | iOS build automation | `bundle install` (uses Gemfile) |
 | gh | GitHub CLI | `brew install gh` |
 | jq | JSON processing | `brew install jq` |
 | DFX | ICP canister deployment (optional) | `sh -ci "$(curl -fsSL https://internetcomputer.org/install.sh)"` |
@@ -332,8 +332,9 @@ If agents are hitting rate limits:
 ### Break-Even Analysis
 
 At $280-590/month in costs:
-- Need 56-118 subscribers at $4.99/month (after Apple's 30% cut)
-- With 10 apps, that's 6-12 subscribers per app
+- Net revenue per subscriber: $4.99 × 0.70 = $3.49/month (after Apple's 30% cut)
+- Need 81-170 subscribers ($280 / $3.49 = 81; $590 / $3.49 = 170)
+- With 10 apps, that's 9-17 subscribers per app
 - This is achievable within 2-3 months of first app launch
 
 After break-even, the cost structure has very high operating leverage — costs stay roughly flat while revenue scales with number of apps and subscribers.

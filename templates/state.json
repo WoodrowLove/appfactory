@@ -27,6 +27,8 @@
     "routed_to_agent": null,
     "fix_attempt": 0
   },
+  "schema_retries": {},
+  "lint_result": null,
   "submission": {
     "queued_at": null,
     "submitted_at": null,

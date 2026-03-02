@@ -80,6 +80,14 @@ After each content cycle:
 ## Output
 
 - Content files in `projects/<slug>/marketing/` or `marketing/<category>/`
-- Updated `marketing/<category>/learnings.json`
+- Updated `marketing/<category>/analytics.json` with performance insights and learnings
 - Posts scheduled via Postiz API
 - Performance data logged to `factory.db`
+- Updated `state.json` before exiting
+
+## Rules
+
+1. Write all output to files. Do not rely on conversation history.
+2. Every post must provide genuine value. Quality over quantity.
+3. Track what works and what doesn't in `marketing/<category>/analytics.json`.
+4. Update `state.json` before exiting. Always.

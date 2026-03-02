@@ -18,7 +18,7 @@ Every agent in the factory is a specialist. It has one job, it does that job wel
 | Property | Value |
 |----------|-------|
 | **Model** | Sonnet 4.6 |
-| **Trigger** | Cron (every 5 minutes) |
+| **Trigger** | Adaptive polling (1 min active / 15 min idle / 5 min default) |
 | **Context budget** | < 5% of context window |
 | **Input** | `projects/*/state.json`, `suggestions/*.json`, `config/openclaw.yaml` |
 | **Output** | Spawned agent sessions, `factory.db` log entries |
@@ -34,7 +34,7 @@ Every agent in the factory is a specialist. It has one job, it does that job wel
 
 **Decision logic (pseudocode):**
 ```
-every 5 minutes:
+every poll cycle (adaptive: 1 min active / 15 min idle / 5 min default):
   active_projects = read all projects/*/state.json where status != "killed" and status != "live"
 
   if len(active_projects) < 5:
@@ -61,22 +61,27 @@ every 5 minutes:
       transition(project, "building")
       spawn(builder, project)
     elif project.status == "building" and project.build_complete:
-      transition(project, "reviewing")
-      spawn(reviewer, project)
+      transition(project, "linting")
+      spawn(linter, project)
+    elif project.status == "linting" and project.lint_complete:
+      if project.lint_result == "hard_fail":
+        transition(project, "revising")
+        spawn(builder, project, mode="revise", feedback=project.lint_report)
+      else:  # pass or soft_fail
+        transition(project, "reviewing")
+        spawn(reviewer, project)
     elif project.status == "reviewing" and project.review_complete:
       if project.quality_score >= 8:
-        transition(project, "monetizing")
+        transition(project, "monetizing_and_packaging")
         spawn(shipper, project, mode="monetize")
+        spawn(shipper, project, mode="package")
       elif project.review_attempts < 3:
         transition(project, "revising")
         spawn(builder, project, mode="revise", feedback=project.quality_report)
       else:
         transition(project, "flagged", reason="3_review_failures")
         notify_human(project)
-    elif project.status == "monetizing" and project.monetization_complete:
-      transition(project, "packaging")
-      spawn(shipper, project, mode="package")
-    elif project.status == "packaging" and project.packaging_complete:
+    elif project.status == "monetizing_and_packaging" and project.monetization_complete and project.packaging_complete:
       transition(project, "ready_to_ship")
       notify_human(project, action="approve_submission")
     elif project.status == "ready_to_ship" and project.human_approved:
@@ -240,7 +245,7 @@ every 5 minutes:
   "technical": {
     "frameworks": ["SwiftUI", "HealthKit", "UserNotifications", "StoreKit 2"],
     "ai_integration": "Gemini Flash for routine personalization (premium feature)",
-    "data_storage": "Local-first (Core Data). No server required.",
+    "data_storage": "Local-first (SwiftData). No server required.",
     "min_ios": "17.0",
     "estimated_complexity": "medium"
   },
@@ -276,7 +281,7 @@ every 5 minutes:
 - Follow SwiftUI best practices (MVVM, @Observable, proper navigation)
 - Handle accessibility (VoiceOver labels, Dynamic Type)
 - Support dark mode
-- Write with `rust_decimal` patterns for any financial calculations (no floating point where precision matters)
+- Use Swift's `Decimal` type for any financial calculations (no `Double` or `Float` where precision matters)
 
 **Revision mode:**
 When called with quality feedback from the Reviewer, the Builder receives:
@@ -304,7 +309,37 @@ When called with quality feedback from the Reviewer, the Builder receives:
 
 ---
 
-### 5. Reviewer
+### 5. Linter
+
+| Property | Value |
+|----------|-------|
+| **Model** | Claude Haiku 4 |
+| **Trigger** | Spawned by Router (after Gate 0 compilation passes) |
+| **Context budget** | Minimal (fast, cheap lint pass) |
+| **Input** | `src/`, `onepager.json` |
+| **Output** | `lint_report.json`, updated `state.json` |
+
+**Responsibilities:**
+Run a fast, automated lint pass before the full Reviewer engages. Checks 7 categories:
+
+1. **Force unwraps** — Any use of `!` on optionals (use `guard let` / `if let` instead)
+2. **Missing permissions** — Cross-reference Info.plist permission keys against actual API usage in code
+3. **Dead code** — Unused imports, unreachable functions, commented-out blocks
+4. **Force casts** — Any use of `as!` (use `as?` with proper handling instead)
+5. **Missing restore purchases** — Verify a "Restore Purchases" button exists and is wired up
+6. **Missing privacy manifest** — Verify `PrivacyInfo.xcprivacy` exists and covers all declared API categories
+7. **Placeholder content** — Detect Lorem ipsum, "TODO", "FIXME", placeholder images, or dummy URLs
+
+**Outcome logic:**
+- **hard_fail**: Any force unwrap, missing restore purchases, or missing privacy manifest found. Project returns to REVISING.
+- **soft_fail**: Minor issues (dead code, placeholder comments) found. Issues are forwarded to the Reviewer as advisory notes. Project proceeds to REVIEWING.
+- **pass**: No issues found. Project proceeds to REVIEWING.
+
+**Why Haiku?** This is a fast, pattern-matching task. Haiku is cheap and fast enough to run as a gate without meaningful cost or latency impact. It catches the obvious issues before the expensive Codex review.
+
+---
+
+### 6. Reviewer
 
 | Property | Value |
 |----------|-------|
@@ -315,9 +350,9 @@ When called with quality feedback from the Reviewer, the Builder receives:
 | **Output** | `quality.json`, updated `state.json` |
 
 **Responsibilities:**
-Run 6 independent quality checks, each scored 0-10. The final score is the average, rounded down. An app needs >= 8.0 to proceed.
+Run 8 independent quality gates, each scored 0-10. The final score is the average, rounded down. An app needs >= 8.0 to proceed.
 
-**The 6 Quality Gates:**
+**The 8 Quality Gates:**
 
 #### Gate 1: Crash Safety (0-10)
 - No force unwraps
@@ -370,6 +405,22 @@ Run 6 independent quality checks, each scored 0-10. The final score is the avera
 - File organization matches feature modules
 - Comments on non-obvious logic
 
+#### Gate 7: Test Coverage (0-10)
+- >= 60% line coverage on model and ViewModel layers
+- Unit tests exist for all public model methods
+- ViewModel state transitions are tested
+- Edge cases (empty data, error states) are covered
+- Tests compile and pass without warnings
+
+#### Gate 8: Monetization UX (0-10)
+- Hybrid paywall implemented (monthly + annual options)
+- Annual savings percentage clearly displayed
+- Subscription management link present (links to iOS subscription settings)
+- Free trial terms displayed before purchase
+- Price formatting is locale-aware
+- Restore purchases is discoverable (not buried)
+- Paywall copy matches the value proposition from the spec
+
 **Quality report output** (see `schemas/quality.schema.json`):
 ```json
 {
@@ -407,7 +458,7 @@ Run 6 independent quality checks, each scored 0-10. The final score is the avera
 
 ---
 
-### 6. Shipper
+### 7. Shipper
 
 | Property | Value |
 |----------|-------|
@@ -451,7 +502,7 @@ Run 6 independent quality checks, each scored 0-10. The final score is the avera
 
 ---
 
-### 7. Marketer
+### 8. Marketer
 
 | Property | Value |
 |----------|-------|
@@ -503,7 +554,8 @@ Run 6 independent quality checks, each scored 0-10. The final score is the avera
 | Model | Role | Why |
 |-------|------|-----|
 | **Opus 4.6** | Builder, Architect, Marketer | Deepest reasoning. Building a full app from a spec, designing product specifications, and creating compelling creative content all require the highest-quality model available. The cost per session is justified by the output quality. |
-| **Sonnet 4.6** | Router, Scout, Shipper | Fast, cheap, excellent at structured tasks. The Router needs speed (5-minute cycles). The Scout processes lots of data but makes simple decisions. The Shipper runs deterministic pipelines. Sonnet handles all of these well at a fraction of Opus cost. |
+| **Sonnet 4.6** | Router, Scout, Shipper | Fast, cheap, excellent at structured tasks. The Router needs speed (adaptive polling cycles). The Scout processes lots of data but makes simple decisions. The Shipper runs deterministic pipelines. Sonnet handles all of these well at a fraction of Opus cost. |
+| **Haiku 4** | Linter | Cheapest and fastest Anthropic model. The lint pass is pattern-matching (force unwraps, missing manifests, placeholder text) — it doesn't need deep reasoning. Running Haiku as a gate before Codex catches obvious issues at near-zero cost. |
 | **GPT-5.3-Codex** | Reviewer | Independent verification requires a different model family. If the same model builds and reviews, it's likely to miss its own blind spots. Codex is specifically optimized for code analysis. Using a different vendor also prevents correlated failures. |
 | **Gemini Flash** | In-app AI (user-facing) | Used inside the apps themselves as the AI backend. Fast, cheap, good enough for user-facing features like personalized recommendations. Not used in the factory pipeline. |
 | **Nano Banana Pro** | Icon generation | Google's latest image model with excellent design aesthetics. Specifically good at generating clean, icon-style imagery at high resolution. |
@@ -516,7 +568,8 @@ Agents do NOT communicate directly. All communication happens through files:
 ```
 Scout writes research.json → Router reads it → Router spawns Architect with research.json
 Architect writes spec.md → Router reads it → Router spawns Builder with spec.md
-Builder writes src/ → Router reads it → Router spawns Reviewer with src/
+Builder writes src/ → Router reads it → Router spawns Linter with src/
+Linter writes lint_report.json → Router reads it → Router spawns Reviewer (or back to Builder on hard_fail)
 Reviewer writes quality.json → Router reads it → Router spawns Builder or Shipper
 ```
 

@@ -142,11 +142,11 @@ The Reviewer cross-references `onepager.json` against the codebase:
 | Dynamic Type | High | Text must scale with system font size settings |
 | VoiceOver labels | High | All interactive elements must have accessibility labels |
 | Loading indicators | Medium | Users must know when something is loading |
-| Pull-to-refresh | Low | Where data can change, pull-to-refresh should be available |
+| Pull-to-refresh | Minor | Where data can change, pull-to-refresh should be available |
 | Keyboard handling | Medium | Keyboard dismissal, scroll-to-avoid, proper input types |
 | Safe area respect | Medium | Content shouldn't be clipped by notch, home indicator, or status bar |
-| Scroll behavior | Low | Long lists should scroll smoothly, no janky animations |
-| Haptic feedback | Low | Key interactions should have appropriate haptic response |
+| Scroll behavior | Minor | Long lists should scroll smoothly, no janky animations |
+| Haptic feedback | Minor | Key interactions should have appropriate haptic response |
 
 **Scoring:**
 - 10: Pixel-perfect, feels like an Apple first-party app
@@ -206,8 +206,8 @@ The Reviewer compares the current app against all other AppFactory apps in `proj
 | File organization | Medium | Feature-module structure, not flat directory |
 | Comments on complex logic | Medium | Non-obvious algorithms should have explaining comments |
 | No hardcoded strings | Medium | All user-facing strings should use localization |
-| No hardcoded colors | Low | Colors should reference named color assets |
-| Test coverage | Low | At minimum, model layer should have unit tests |
+| No hardcoded colors | Minor | Colors should reference named color assets |
+| Test coverage | Minor | At minimum, model layer should have unit tests |
 
 **Scoring:**
 - 10: Clean, idiomatic Swift code that any developer would be proud of
@@ -225,7 +225,7 @@ The Reviewer verifies that meaningful tests exist and that coverage meets minimu
 | Check | Severity | Notes |
 |-------|----------|-------|
 | Model layer test files exist | Critical | Every file in `Models/` must have a corresponding `*Tests.swift` |
-| Line coverage >= 60% | High | Measured via `swift test --enable-code-coverage` on the model layer |
+| Line coverage >= 60% | High | Measured via `xcodebuild test` with code coverage enabled on the model layer |
 | Tests actually assert something | High | Tests must contain meaningful assertions, not just `XCTAssertTrue(true)` |
 | ViewModel tests for core flows | Medium | At minimum, the primary user flow ViewModel should have tests |
 | Edge case coverage | Medium | Nil inputs, empty arrays, boundary values tested |
@@ -234,10 +234,17 @@ The Reviewer verifies that meaningful tests exist and that coverage meets minimu
 **How coverage is measured:**
 
 ```bash
-swift test --enable-code-coverage
+# Build and run tests with code coverage enabled (for .xcodeproj projects)
+xcodebuild test \
+  -scheme <AppName> \
+  -destination 'platform=iOS Simulator,name=iPhone 16 Pro Max' \
+  -enableCodeCoverage YES \
+  -resultBundlePath TestResults.xcresult
+
+# Extract coverage report from the result bundle
 xcrun llvm-cov report \
-  .build/debug/AppNamePackageTests.xctest/Contents/MacOS/AppNamePackageTests \
-  -instr-profile .build/debug/codecov/default.profdata \
+  $(find ~/Library/Developer/Xcode/DerivedData -name "<AppName>" -type f | head -1) \
+  -instr-profile $(find ~/Library/Developer/Xcode/DerivedData -name "Coverage.profdata" -type f | head -1) \
   -sources Models/
 ```
 
@@ -288,7 +295,7 @@ overall = floor(mean([gate1, gate2, gate3, gate4, gate5, gate6, gate7, gate8]) *
 - Gates: [9, 10, 8, 9, 10, 8, 8, 9] → mean = 8.875 → **PASS** (8.8)
 - Gates: [9, 10, 7, 9, 10, 8, 9, 8] → mean = 8.75 → **PASS** (8.7)
 - Gates: [8, 9, 7, 8, 8, 7, 7, 7] → mean = 7.625 → **FAIL** (7.6)
-- Gates: [10, 10, 10, 10, 5, 10, 9, 9] → mean = 9.125 → **PASS** (9.1) — but the 5 in App Store Compliance likely has critical issues that should be addressed
+- Gates: [10, 10, 10, 10, 5, 10, 9, 9] → mean = 9.125 → **FAIL** (9.1 average but blocked — Gate 5 scored 5, triggering a blocking issue that must be resolved regardless of overall score)
 
 **Important:** Even if the average passes, any gate with a score of 5 or below generates a **blocking issue** that must be resolved regardless of the overall score.
 

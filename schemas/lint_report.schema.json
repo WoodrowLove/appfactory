@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AppFactory Lint Report",
+  "description": "Output of the Linter agent (Haiku) — fast pre-review pass that catches common quality issues",
+  "type": "object",
+  "required": ["project_slug", "timestamp", "result", "issues", "total_issues"],
+  "properties": {
+    "project_slug": { "type": "string" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "result": {
+      "type": "string",
+      "enum": ["pass", "soft_fail", "hard_fail"],
+      "description": "pass: <3 issues, 0 critical. soft_fail: 3-5 issues, 0 critical. hard_fail: >5 issues OR any critical flag."
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["check", "severity", "file", "description"],
+        "properties": {
+          "check": {
+            "type": "string",
+            "enum": [
+              "force_unwrap",
+              "missing_permission",
+              "dead_code",
+              "force_cast",
+              "missing_restore_purchases",
+              "missing_privacy_manifest",
+              "placeholder_content"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "high", "medium", "minor"]
+          },
+          "file": { "type": "string" },
+          "line": { "type": "integer" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "critical_flags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Critical issues that force a hard fail (e.g., missing restore purchases, missing privacy manifest)"
+    },
+    "total_issues": { "type": "integer", "minimum": 0 },
+    "recommendation": { "type": "string" }
+  }
+}
