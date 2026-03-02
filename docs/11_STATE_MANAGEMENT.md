@@ -122,6 +122,7 @@ projects/<slug>/
 ├── onepager.json           # Architect output (machine-readable spec)
 ├── src/                    # Builder output (complete Xcode project)
 │   └── ...
+├── lint_report.json        # Linter output (fast pre-review check)
 ├── quality.json            # Reviewer output (quality report)
 ├── quality_history/        # All review attempts
 │   ├── attempt_1.json
@@ -146,6 +147,21 @@ projects/<slug>/
 ## SQLite Database: `factory.db`
 
 For analytics, history, and cross-project queries that aren't practical with individual JSON files.
+
+### Scalability Note
+
+SQLite is an excellent choice for the factory's early stages and performs well up to approximately **50 apps** in the pipeline. However, when crossing **100 apps**, consider migrating to PostgreSQL. SQLite's single-writer lock becomes a bottleneck under concurrent agent writes — when the Router, Builder, Reviewer, and Shipper are all attempting to log events and update state simultaneously, write contention causes retries and slowdowns. WAL mode helps but does not eliminate the single-writer constraint.
+
+**Migration trigger indicators:**
+- `SQLITE_BUSY` errors appearing in agent logs
+- Event writes taking > 100ms (check `agent_sessions.duration`)
+- More than 10 concurrent agent sessions running simultaneously
+
+**Migration path:**
+- SQLite → PostgreSQL is straightforward since the schema uses standard SQL
+- Use `pgloader` for the data migration
+- Update the connection string in `config/openclaw.yaml`
+- No schema changes required — PostgreSQL handles the same types natively
 
 ### Schema
 

@@ -337,3 +337,86 @@ At $280-590/month in costs:
 - This is achievable within 2-3 months of first app launch
 
 After break-even, the cost structure has very high operating leverage — costs stay roughly flat while revenue scales with number of apps and subscribers.
+
+## Scaling
+
+### Multi-Machine Architecture
+
+Not every agent requires macOS. By splitting workloads across machines, you can 2-3x throughput without buying additional Macs.
+
+**Machine roles:**
+
+| Machine | OS | Agents / Services | Why This Machine |
+|---------|----|--------------------|-----------------|
+| Primary Mac | macOS 14+ | Builder, Shipper, Fastlane | Xcode and iOS simulators require macOS |
+| Linux Server (or WSL) | Ubuntu 22+ | Router, Scout, Marketer, Control Panel | These agents only need Node.js, Python, and API access |
+
+**What requires macOS (and why):**
+- **Builder**: Needs `xcodebuild`, iOS simulators, and Swift compiler
+- **Shipper**: Needs Fastlane (which wraps `xcodebuild` and `altool`/`xcrun`)
+- **Code signing**: `fastlane match` requires macOS Keychain
+
+**What does NOT require macOS:**
+- **Router**: Reads `state.json` files and spawns agents. Pure Node.js.
+- **Scout**: Calls Reddit API, X API, and LLM APIs. Pure API calls.
+- **Architect**: Generates specs via LLM. No platform dependency.
+- **Reviewer/Linter**: Reads source code and calls LLM APIs. No compilation needed.
+- **Marketer**: Generates content and calls Postiz API. Pure API calls.
+- **Control Panel**: SvelteKit app. Runs anywhere Node.js runs.
+
+**Setup:**
+```
+┌──────────────────────────┐     ┌──────────────────────────┐
+│      Linux Server        │     │       Primary Mac         │
+│                          │     │                           │
+│  Router (orchestrator)   │────▶│  Builder (Xcode builds)   │
+│  Scout (research)        │     │  Shipper (Fastlane)       │
+│  Architect (specs)       │     │  Code signing (Keychain)  │
+│  Reviewer (code review)  │     │                           │
+│  Linter (fast checks)    │     └──────────────────────────┘
+│  Marketer (content)      │
+│  Control Panel (UI)      │
+│  factory.db (SQLite)     │
+└──────────────────────────┘
+```
+
+Communication between machines uses the shared git repository and file system (via NFS, SSHFS, or synced working directories). The Router on the Linux server writes `state.json` transitions, and the Mac-based agents poll or receive webhooks when it is their turn.
+
+**Alternatively**, use SSH-based remote execution: the Router on Linux triggers Builder/Shipper jobs on the Mac via `ssh mac-host "cd /path/to/appfactory && fastlane ios build"`.
+
+This architecture means the Mac is only busy during actual compilation and submission — freeing it from the overhead of running the orchestrator, research, and marketing workloads.
+
+## Future Considerations
+
+### Apple Search Ads (Phase 3 — Paid Acquisition)
+
+Once 5-10 apps are live and generating organic revenue, consider allocating a paid acquisition budget through Apple Search Ads.
+
+**Strategy:**
+- **Budget**: $50-100 per app per month (start conservative, scale what works)
+- **Targeting**: High-intent keywords identified during the Scout's research phase
+- **Campaign type**: Search Results campaigns (users see ads when searching relevant terms)
+- **Attribution**: SKAdNetwork integration (already included in app templates) provides conversion tracking without compromising user privacy
+
+**Typical performance for utility apps:**
+| Metric | Expected Range |
+|--------|---------------|
+| Cost per tap (CPT) | $0.50-2.00 |
+| Tap-through rate (TTR) | 5-10% |
+| Conversion rate (installs) | 40-60% |
+| Cost per install (CPI) | $1.00-4.00 |
+| Return on ad spend (ROAS) | 3-5x over 12 months |
+
+**Implementation:**
+1. The Marketer extracts the top 10-20 keywords from `research.json` for each app
+2. Keywords are grouped into campaigns by intent level (brand, category, competitor)
+3. Apple Search Ads API is used to create and manage campaigns programmatically
+4. Budget pacing is automated: increase spend on keywords with ROAS > 3x, pause keywords with ROAS < 1x
+5. Weekly reports are generated and stored in `projects/<slug>/marketing/ads/`
+
+**Prerequisites:**
+- SKAdNetwork attribution configured in each app (already in templates)
+- Apple Search Ads account linked to the developer account
+- Minimum 30 days of organic data per app before enabling paid campaigns (establishes baseline metrics)
+
+Paid acquisition is not needed for initial traction — organic marketing and ASO should be the primary growth drivers for the first 6 months. Apple Search Ads becomes valuable when you have proven product-market fit and want to accelerate growth for your best-performing apps.

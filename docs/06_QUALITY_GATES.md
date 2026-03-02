@@ -6,7 +6,57 @@ Quality gates exist for one reason: to prevent Apple rejections and ensure users
 
 An app needs a score of **8.0/10 or higher** to proceed past review. Three consecutive failures flag the project for human intervention. The threshold is intentionally high — it's cheaper to fix issues before submission than to deal with Apple rejections and resubmission delays.
 
-## The 6 Gates
+## Pre-Review Lint Pass
+
+Before the Codex Reviewer is spawned, a **Haiku-based Linter agent** performs a fast, cheap static analysis pass over the Builder's output. This pass checks for:
+
+| Check | Severity |
+|-------|----------|
+| Force unwraps (`!`) | Critical flag |
+| Missing `NS*UsageDescription` strings for used permissions | Critical flag |
+| Dead code (unused imports, unreachable functions) | Warning |
+| Placeholder text ("Lorem ipsum", "TODO", "FIXME" visible in UI strings) | Critical flag |
+
+**Decision logic:**
+- If the Linter finds **>5 total issues** or **any critical flag**, the build is sent straight back to the Builder with the Linter's report — the Codex Reviewer is never spawned.
+- If the Linter finds 5 or fewer non-critical issues, those are attached as advisory notes to the Reviewer's input context, and review proceeds normally.
+
+**Why this matters:** Codex review tokens are expensive. Catching obvious problems with a fast Haiku pass before invoking the full Reviewer **cuts review failure cost by ~40%**. Most first-attempt Builder outputs have at least one force unwrap or placeholder string — catching these early saves a full review cycle.
+
+## Incremental Review
+
+On **revision attempts 2+** (after a previous review failure), the Reviewer only re-checks the gates that previously failed, not all 8 scored gates. Gates that scored 8 or above on the prior attempt are marked as **locked-pass** and skipped.
+
+**How it works:**
+1. The Router reads the previous `quality.json` and identifies which gates scored below 8.
+2. Only those gates (plus Gate 0: Compilation, which always runs) are included in the Reviewer's prompt.
+3. The Reviewer outputs scores only for re-checked gates; locked-pass scores carry forward.
+4. The overall score is recalculated from the combination of locked-pass and new scores.
+
+**Impact:** This cuts revision review time by **50-60%** and reduces token spend proportionally. It also focuses the Reviewer's attention on the specific areas that need improvement, producing more targeted feedback.
+
+## The Gates
+
+### Gate 0: Compilation (pass/fail)
+
+**Automated pre-review gate — run by the Router, not the Reviewer.**
+
+After the Builder completes and outputs `src/`, the Router runs `xcodebuild build` independently before spawning the Reviewer. This is a binary pass/fail check — the code either compiles or it doesn't.
+
+**What runs:**
+```bash
+xcodebuild build \
+  -scheme AppName \
+  -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+  -quiet \
+  2>&1
+```
+
+**Decision logic:**
+- **Pass (exit code 0):** Compilation succeeded. The Router proceeds to spawn the Reviewer for Gates 1-8.
+- **Fail (non-zero exit code):** Compilation failed. The Router sends the compiler error output back to the Builder immediately. The Reviewer is never spawned.
+
+**Why this gate exists:** There is no point spending Codex tokens reviewing code that doesn't compile. A surprising number of first-attempt Builder outputs have minor syntax errors, missing imports, or type mismatches. Catching these before review saves the cost of an entire Reviewer invocation. Unlike Gates 1-8, this gate is not scored 0-10 — it is strictly binary and is **not included in the overall score average**.
 
 ### Gate 1: Crash Safety (0-10)
 
@@ -166,19 +216,79 @@ The Reviewer compares the current app against all other AppFactory apps in `proj
 - 7: Significant separation of concerns violations
 - 6 or below: Spaghetti code, no pattern followed — fail
 
+### Gate 7: Test Coverage (0-10)
+
+**What the Reviewer checks:**
+
+The Reviewer verifies that meaningful tests exist and that coverage meets minimum thresholds.
+
+| Check | Severity | Notes |
+|-------|----------|-------|
+| Model layer test files exist | Critical | Every file in `Models/` must have a corresponding `*Tests.swift` |
+| Line coverage >= 60% | High | Measured via `swift test --enable-code-coverage` on the model layer |
+| Tests actually assert something | High | Tests must contain meaningful assertions, not just `XCTAssertTrue(true)` |
+| ViewModel tests for core flows | Medium | At minimum, the primary user flow ViewModel should have tests |
+| Edge case coverage | Medium | Nil inputs, empty arrays, boundary values tested |
+| No test-only hacks | Medium | Production code should not contain `#if TEST` workarounds or test-specific backdoors |
+
+**How coverage is measured:**
+
+```bash
+swift test --enable-code-coverage
+xcrun llvm-cov report \
+  .build/debug/AppNamePackageTests.xctest/Contents/MacOS/AppNamePackageTests \
+  -instr-profile .build/debug/codecov/default.profdata \
+  -sources Models/
+```
+
+**Scoring:**
+- 10: >= 80% model coverage, ViewModels tested, edge cases covered
+- 9: >= 70% model coverage, core ViewModel tested
+- 8: >= 60% model coverage, all Model files have test files
+- 7: >= 60% model coverage, but 1-2 Model files missing test files
+- 6: < 60% model coverage or multiple Model files untested
+- 5 or below: No meaningful tests, or tests are all stubs — fail
+
+### Gate 8: Monetization UX (0-10)
+
+**What the Reviewer checks:**
+
+Monetization must feel fair, transparent, and Apple-compliant. Users should never feel tricked into a subscription.
+
+| Check | Severity | Notes |
+|-------|----------|-------|
+| Annual savings clearly presented | Critical | Paywall must show the percentage or dollar amount saved by choosing annual over monthly |
+| Annual plan visually emphasized | High | Annual plan should be the default selection or visually prominent (larger card, highlighted border, "Best Value" badge) |
+| Trial terms unambiguous | Critical | If a free trial is offered, the exact duration and what happens after ("$X.XX/month after 7-day free trial") must be visible before the CTA button |
+| Contextual paywall triggers | High | Paywalls should trigger when a user taps a premium feature, not only during onboarding. At minimum, tapping any premium-gated feature must show the paywall |
+| Restore Purchases feedback | High | "Restore Purchases" button must show clear feedback: spinner during restore, success confirmation with restored items listed, or "No purchases found" message |
+| Subscription management link | Medium | Settings must include a working link to iOS subscription management (`itms-apps://apps.apple.com/account/subscriptions`) |
+| No dark patterns | Critical | No pre-selected premium plan in a way that could be missed, no tiny cancel text, no confusing double-negatives in subscription prompts |
+| Price formatting | Medium | Prices must be localized and fetched from StoreKit (never hardcoded strings) |
+
+**Scoring:**
+- 10: Paywall is clear, fair, and polished — annual savings shown, trial terms explicit, restore works perfectly
+- 9: Minor improvements possible (e.g., savings percentage could be more prominent)
+- 8: One non-critical issue (e.g., restore purchases lacks a success message, but doesn't crash)
+- 7: Contextual paywalls missing (only shows on onboarding) or trial terms are ambiguous
+- 6: Annual savings not shown or annual plan not emphasized — Apple may reject or users will churn
+- 5 or below: Dark patterns present, missing restore purchases, or hardcoded prices — fail
+
 ## Scoring Calculation
 
-The overall score is the **average of all 6 gates, rounded down to one decimal place**.
+The overall score is the **average of all 8 scored gates (1-8), rounded down to one decimal place**.
+
+Gate 0 (Compilation) is a binary pass/fail gate and is **not included** in the average. If Gate 0 fails, review does not proceed, so no scored gates are evaluated.
 
 ```
-overall = floor(mean([gate1, gate2, gate3, gate4, gate5, gate6]) * 10) / 10
+overall = floor(mean([gate1, gate2, gate3, gate4, gate5, gate6, gate7, gate8]) * 10) / 10
 ```
 
 **Examples:**
-- Gates: [9, 10, 8, 9, 10, 8] → mean = 9.0 → **PASS**
-- Gates: [9, 10, 7, 9, 10, 8] → mean = 8.83 → **PASS** (8.8)
-- Gates: [8, 9, 7, 8, 8, 7] → mean = 7.83 → **FAIL** (7.8)
-- Gates: [10, 10, 10, 10, 5, 10] → mean = 9.16 → **PASS** (9.1) — but the 5 in App Store Compliance likely has critical issues that should be addressed
+- Gates: [9, 10, 8, 9, 10, 8, 8, 9] → mean = 8.875 → **PASS** (8.8)
+- Gates: [9, 10, 7, 9, 10, 8, 9, 8] → mean = 8.75 → **PASS** (8.7)
+- Gates: [8, 9, 7, 8, 8, 7, 7, 7] → mean = 7.625 → **FAIL** (7.6)
+- Gates: [10, 10, 10, 10, 5, 10, 9, 9] → mean = 9.125 → **PASS** (9.1) — but the 5 in App Store Compliance likely has critical issues that should be addressed
 
 **Important:** Even if the average passes, any gate with a score of 5 or below generates a **blocking issue** that must be resolved regardless of the overall score.
 
@@ -218,14 +328,19 @@ CREATE TABLE quality_history (
     id INTEGER PRIMARY KEY,
     project_slug TEXT NOT NULL,
     attempt INTEGER NOT NULL,
+    gate_0_pass BOOLEAN,          -- Compilation: binary pass/fail
     gate_1_score REAL,
     gate_2_score REAL,
     gate_3_score REAL,
     gate_4_score REAL,
     gate_5_score REAL,
     gate_6_score REAL,
-    overall_score REAL,
+    gate_7_score REAL,
+    gate_8_score REAL,
+    overall_score REAL,           -- Average of gates 1-8 only
     pass BOOLEAN,
+    lint_pass BOOLEAN,            -- Pre-review lint pass result
+    incremental_review BOOLEAN,   -- Whether this was an incremental review
     timestamp TEXT NOT NULL
 );
 ```

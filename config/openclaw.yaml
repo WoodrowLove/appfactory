@@ -1,0 +1,177 @@
+# AppFactory Orchestrator Configuration
+# This is the primary config file for the OpenClaw-based orchestrator.
+
+version: "1.0"
+
+orchestrator:
+  name: "appfactory-router"
+  model: "claude-sonnet-4-20250514"
+  timezone: "America/New_York"
+
+  # Adaptive polling: fast when agents active, slow when idle
+  polling:
+    active_interval_seconds: 60     # 1 min when agents are running
+    idle_interval_seconds: 900      # 15 min when nothing is happening
+    default_interval_seconds: 300   # 5 min fallback
+
+  # Event-driven transitions: agent completion triggers immediate Router run
+  # instead of waiting for next cron tick. Eliminates up to 45 min dead time.
+  event_driven:
+    enabled: true
+    webhook_port: 3002
+    webhook_path: "/agent-complete"
+    # Agents POST to http://localhost:3002/agent-complete on session exit
+    # Router processes the event immediately, then resumes cron schedule
+
+  # Context budget control
+  max_context_tokens: 4000  # Keep under 5% of context window
+  state_summary_only: true  # Only read state.json, not full project data
+
+  # Concurrency limits
+  max_active_projects: 5
+  max_in_review: 5
+  max_concurrent_agents: 3  # Don't overwhelm the machine
+
+  # Schema validation: validate all agent outputs before phase transition
+  schema_validation:
+    enabled: true
+    schemas_dir: "./schemas"
+    validate_on_transition: true
+    # Malformed JSON → agent must retry or flag for human review
+
+  # Paths
+  projects_dir: "./projects"
+  suggestions_dir: "./suggestions"
+  prompts_dir: "./prompts"
+  database: "./factory.db"
+  budget_file: "./config/budget.json"
+  attention_file: "./attention_queue.json"
+
+  # Auto-approval: specs auto-approve after timeout if validation score is high
+  auto_approval:
+    spec_auto_approve: true
+    spec_auto_approve_min_score: 24        # Validation score must be >= 24/30
+    spec_auto_approve_timeout_hours: 4     # Auto-approve after 4 hours if no human action
+    submission_auto_approve: false          # NEVER auto-approve submissions
+
+agents:
+  scout:
+    model: "claude-sonnet-4-20250514"
+    provider: "anthropic"
+    prompt_file: "./prompts/scout.md"
+    timeout_minutes: 45
+    max_retries: 2
+    estimated_cost_per_session: 1.50
+
+  architect:
+    model: "claude-opus-4-20250514"
+    provider: "anthropic"
+    prompt_file: "./prompts/architect.md"
+    timeout_minutes: 60
+    max_retries: 1
+    estimated_cost_per_session: 8.00
+
+  builder:
+    model: "claude-opus-4-20250514"
+    provider: "anthropic"
+    prompt_file: "./prompts/builder.md"
+    timeout_minutes: 120
+    max_retries: 2
+    estimated_cost_per_session: 15.00
+
+  reviewer:
+    model: "codex-5.3"
+    provider: "openai"
+    prompt_file: "./prompts/reviewer.md"
+    timeout_minutes: 30
+    max_retries: 1
+    estimated_cost_per_session: 3.00
+
+  # Pre-review lint: lightweight pass before full Codex review
+  linter:
+    model: "claude-haiku-4-20250514"
+    provider: "anthropic"
+    prompt_file: "./prompts/linter.md"
+    timeout_minutes: 10
+    max_retries: 1
+    estimated_cost_per_session: 0.30
+    # Catches ~40% of common failures (force unwraps, missing permissions,
+    # dead code) before the expensive Codex review
+
+  shipper:
+    model: "claude-sonnet-4-20250514"
+    provider: "anthropic"
+    prompt_file: "./prompts/shipper.md"
+    timeout_minutes: 60
+    max_retries: 2
+    estimated_cost_per_session: 2.00
+
+  marketer:
+    model: "claude-opus-4-20250514"
+    provider: "anthropic"
+    prompt_file: "./prompts/marketer.md"
+    timeout_minutes: 45
+    max_retries: 1
+    estimated_cost_per_session: 6.00
+
+# Pipeline customizations
+pipeline:
+  # Gate 0: External compilation check before Reviewer
+  compilation_gate:
+    enabled: true
+    command: "xcodebuild build -scheme ${APP_SCHEME} -destination 'platform=iOS Simulator,name=iPhone 16 Pro Max' -quiet"
+    timeout_minutes: 10
+    # If compilation fails, skip Reviewer entirely → save tokens
+
+  # Pre-review lint pass
+  pre_review_lint:
+    enabled: true
+    # Run Haiku-based linter before Codex review
+    # Catches force unwraps, missing permissions, dead code
+    # If lint finds > 5 critical issues, skip Codex and send straight to Builder revision
+
+  # Incremental review on revision cycles
+  incremental_review:
+    enabled: true
+    # On attempt 2+, Reviewer only re-checks gates that previously failed
+    # Cuts revision review time by 50-60%
+
+  # Parallel phases: Monetize and Package run simultaneously
+  parallel_monetize_package:
+    enabled: true
+    # Icon generation, screenshot scripts, and ASO copy don't depend on
+    # App Store Connect product configuration. Run both, merge results.
+
+  # TestFlight soak test before App Store submission
+  testflight_soak:
+    enabled: false  # Enable when TestFlight is configured
+    soak_hours: 24
+    # Push to TestFlight for 24h before App Store submission
+    # Catches runtime crashes that compilation doesn't
+
+  # Phased release (canary deployment)
+  phased_release:
+    enabled: true
+    # Roll out: 1% → 2% → 5% → 10% → 20% → 50% → 100% over 7 days
+    # Monitor ratings during rollout, pause if rating drops below 3.5
+
+notifications:
+  # How to notify when items need human attention
+  methods:
+    - type: "file"
+      path: "./attention_queue.json"
+    # Uncomment to add additional channels:
+    # - type: "email"
+    #   to: "woodrow227@icloud.com"
+    #   smtp_server: "smtp.example.com"
+    # - type: "telegram"
+    #   bot_token: "${TELEGRAM_BOT_TOKEN}"
+    #   chat_id: "${TELEGRAM_CHAT_ID}"
+
+logging:
+  level: "info"  # debug, info, warn, error
+  file: "./logs/orchestrator.log"
+  max_size_mb: 50
+  rotation: "daily"
+  # Also log to factory.db for Control Panel queries
+  database_logging: true

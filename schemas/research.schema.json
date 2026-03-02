@@ -59,6 +59,32 @@
         "total": { "type": "integer", "minimum": 3, "maximum": 30 }
       }
     },
+    "google_trends": {
+      "type": "object",
+      "description": "Google Trends data for primary keywords",
+      "properties": {
+        "trend_direction": { "type": "string", "enum": ["rising", "stable", "declining"] },
+        "12_month_interest": { "type": "string", "description": "Relative interest score or summary" },
+        "related_queries": { "type": "array", "items": { "type": "string" } },
+        "seasonal_pattern": { "type": ["string", "null"], "description": "e.g. 'Peaks in January (New Year resolutions)'" }
+      }
+    },
+    "data_sources_used": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["reddit", "x", "app_store_reviews", "product_hunt", "google_trends", "apple_search_ads", "appfollow", "apptweak"] },
+      "description": "Which data sources were successfully queried"
+    },
+    "data_source_failures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "source": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      },
+      "description": "Data sources that failed with reason, for debugging"
+    },
     "differentiation_from_existing": { "type": "string" },
     "technical_notes": { "type": "string" },
     "monetization_hypothesis": { "type": "string" },

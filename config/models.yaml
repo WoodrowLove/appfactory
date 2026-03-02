@@ -1,6 +1,12 @@
 # Model assignments for AppFactory agents
 # Update these when better models become available
 # Use plug-and-play approach: change the model, provide the API key, go
+#
+# NAMING CONVENTION:
+# Documentation uses friendly names (e.g. "Opus 4", "Sonnet 4", "Codex")
+# Config files use actual API model IDs (e.g. "claude-opus-4-20250514")
+# When models are updated, change ONLY this file and config/openclaw.yaml.
+# Documentation friendly names remain stable across model snapshots.
 
 version: "1.0"
 
@@ -35,6 +41,12 @@ agents:
     role: "Independent code review, quality scoring"
     cost_tier: "medium"
     notes: "Using different model family for cross-verification"
+
+  linter:
+    model: "claude-haiku-4-20250514"
+    provider: "anthropic"
+    role: "Pre-review lint pass — catches common failures before expensive Codex review"
+    cost_tier: "minimal"
 
   shipper:
     model: "claude-sonnet-4-20250514"

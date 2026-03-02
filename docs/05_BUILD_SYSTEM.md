@@ -345,7 +345,7 @@ actor AuditTrail {
 
 Before the Builder declares a project complete, it must:
 
-1. **Compile check**: Run `xcodebuild build -scheme AppName -destination 'platform=iOS Simulator,name=iPhone 15'` and verify zero errors.
+1. **Compile check**: Run `xcodebuild build -scheme AppName -destination 'platform=iOS Simulator,name=iPhone 16 Pro Max'` and verify zero errors.
 2. **Warning audit**: Review all warnings. Fix any that could cause App Store rejection.
 3. **Manifest check**: Verify `PrivacyInfo.xcprivacy` lists all data collection accurately.
 4. **Signing check**: Ensure the project's signing configuration references the correct team and provisioning profile.

@@ -444,7 +444,7 @@ Run 6 independent quality checks, each scored 0-10. The final score is the avera
 
 **The Shipper generates screenshots by:**
 1. Writing XCUITest scripts that navigate to each key screen
-2. Running `fastlane snapshot` against multiple simulators (iPhone 15, iPhone 15 Plus, iPhone 15 Pro Max, iPad Pro)
+2. Running `fastlane snapshot` against multiple simulators (iPhone 16 Pro Max, iPhone 16, iPad Pro 13" (M4))
 3. Each simulator captures screenshots in the app's primary language
 4. `fastlane frameit` adds device frames and marketing headlines
 5. Screenshots are organized per device size as required by App Store Connect

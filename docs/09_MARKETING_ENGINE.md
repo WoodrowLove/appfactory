@@ -283,3 +283,102 @@ Cross-promotion rules:
 | 12 | 15,000-50,000 | 500,000-1,500,000 | 5,000-15,000 |
 
 These are conservative estimates. A single viral video (100K+ views) can accelerate these timelines dramatically. The self-learning loop optimizes for this virality over time.
+
+## Engagement Auto-Reply
+
+When a post receives significant engagement, responding to comments boosts algorithmic reach. Most platforms reward posts where the creator actively participates in the conversation.
+
+**Trigger:** When a post accumulates **10+ comments**, the Marketer queues a response task.
+
+**Process:**
+1. The Larry skill monitors comment counts via the Postiz analytics webhook
+2. When a post crosses the 10-comment threshold, it triggers a `comment_response` task
+3. The Marketer reads the top comments (sorted by likes/relevance) and generates thoughtful replies
+4. Replies are queued for posting via Postiz API (not instant — stagger over 1-2 hours to appear natural)
+5. Each reply provides additional value or answers a question (never generic "thanks!" replies)
+
+**Rules:**
+- Maximum 5 replies per post (more than that looks desperate)
+- Prioritize replying to questions and genuine engagement over simple praise
+- Never argue with negative comments — acknowledge, redirect, or ignore
+- If a comment asks about a feature the app doesn't have, log it as a feature request in `projects/<slug>/feedback/`
+- Space replies 15-30 minutes apart to avoid triggering spam detection
+
+**Configuration:**
+```yaml
+# In openclaw.yaml
+marketing:
+  engagement_auto_reply:
+    enabled: true
+    comment_threshold: 10     # Minimum comments to trigger
+    max_replies_per_post: 5
+    reply_delay_minutes: 15   # Minimum delay between replies
+    platforms: ["tiktok", "instagram"]  # YouTube comments handled differently
+```
+
+**Why this matters:** Platform algorithms interpret creator engagement as a signal that the content is worth promoting. A post where the creator replies to comments typically sees 20-40% more reach in the 48 hours following the engagement.
+
+## In-App Events
+
+Apple's **In-App Events** feature displays time-limited event cards directly in App Store search results and on the app's product page. These cards drive installs by creating urgency and surfacing the app in seasonal searches.
+
+**What are In-App Events:**
+- Promotional cards that appear in the App Store for a defined time period
+- Show up in search results, editorial features, and the app's product page
+- Support custom imagery, short description, and deep links into the app
+- Free to create — no ad spend required
+
+**Seasonal calendar (automate these annually):**
+
+| Event | Timing | Applicable Categories | Example Event |
+|-------|--------|----------------------|---------------|
+| New Year / Fresh Start | Dec 28 - Jan 15 | Health, Productivity, Finance | "Start Your 2027 Habits" |
+| Valentine's Day | Feb 7 - Feb 14 | Lifestyle, Health | "Self-Care Challenge" |
+| Back to School | Aug 1 - Sep 7 | Education, Productivity | "Study Smarter This Semester" |
+| Fall Reset | Sep 15 - Oct 1 | Productivity, Health | "Fall Routine Builder" |
+| Holiday Season | Nov 20 - Dec 31 | All categories | "Holiday [Feature] Challenge" |
+
+**Implementation:**
+
+The Shipper configures In-App Events via the **App Store Connect API**:
+
+```json
+// Example In-App Event payload
+{
+  "type": "inAppEvents",
+  "attributes": {
+    "referenceName": "new-year-habits-2027",
+    "deepLink": "routinerest://event/new-year-challenge",
+    "territorySchedules": [
+      {
+        "publishStart": "2026-12-28T00:00:00Z",
+        "eventStart": "2027-01-01T00:00:00Z",
+        "eventEnd": "2027-01-15T23:59:59Z"
+      }
+    ],
+    "eventState": "ACCEPTED",
+    "badge": "challenge",
+    "localizations": [
+      {
+        "locale": "en-US",
+        "name": "New Year Habit Challenge",
+        "shortDescription": "Build 3 new habits in 14 days",
+        "longDescription": "Start 2027 right. Pick 3 habits, track daily, and see your streak grow."
+      }
+    ]
+  }
+}
+```
+
+**Automation pipeline:**
+1. A cron job checks the seasonal calendar 14 days before each event window
+2. The Shipper generates event metadata (name, description, imagery) tailored to each live app
+3. The Marketer creates a matching event card image (1920x1080, following Apple's guidelines)
+4. The Shipper submits the event via the App Store Connect API
+5. The Marketer schedules social media posts timed to the event launch for cross-promotion
+6. After the event ends, engagement metrics are logged to `content_performance` for future optimization
+
+**In-app support:**
+The Builder includes a lightweight event handler in each app. When a user opens the app via an In-App Event deep link, the app surfaces the relevant feature or challenge directly — skipping the home screen and reducing friction.
+
+In-App Events are underused by most developers, which makes them a low-effort, high-impact channel for driving incremental installs.

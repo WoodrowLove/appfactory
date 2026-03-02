@@ -47,6 +47,55 @@ Every screen in `onepager.json.screens` must exist. Every feature in `onepager.j
 - Error states with user-friendly messages
 - Screenshot mode (`--screenshot-mode` launch argument): skip onboarding, load demo data, disable animations
 
+### 4a. Contextual Paywalls
+Every app must implement a **hybrid paywall strategy**. The paywall appears in two contexts:
+1. **Onboarding paywall**: Show the paywall as the final onboarding screen (after value demonstration, before the main app). Users who dismiss continue with the free tier.
+2. **Feature-gated paywall**: When a user taps any premium feature, show the paywall contextually with messaging specific to that feature (e.g., "Unlock AI Insights" instead of generic "Go Premium").
+
+Implement a `PremiumGateModifier` (SwiftUI `ViewModifier`) that wraps premium UI elements. When the user is not subscribed, tapping the element presents the paywall sheet with context-specific messaging. When subscribed, the element behaves normally. Example usage:
+```swift
+Button("Generate AI Routine") { /* ... */ }
+    .premiumGate(feature: "ai_routines", description: "AI-powered routine personalization")
+```
+
+### 4b. Localization from Day 1
+Ship every app with **String Catalogs** configured for the top 5 App Store markets:
+- EN (English)
+- ES (Spanish)
+- DE (German)
+- FR (French)
+- JA (Japanese)
+
+All user-facing strings must use String Catalogs (`Localizable.xcstrings`). No hardcoded strings in views. This includes:
+- Button labels
+- Navigation titles
+- Empty state messages
+- Error messages
+- Onboarding copy
+- Paywall copy
+
+Use Xcode's String Catalog editor to organize translations. For the initial build, provide EN strings and mark other languages as "Needs Review" — the Shipper agent will handle translation during the Package phase.
+
+### 4c. In-App Cross-Promotion
+Include a **"More Apps"** section in the Settings screen that dynamically lists other AppFactory apps. Implementation:
+1. Bundle a `more_apps.json` file containing app metadata (name, icon URL, App Store URL, tagline, category).
+2. Display as a `List` section in Settings with app icon, name, and tagline.
+3. Tapping an entry opens the App Store product page via `StoreKit.AppStore.showProduct(id:)`.
+4. If a remote config URL is available (specified in the app's config), fetch the latest list on launch and cache locally. Fall back to the bundled JSON if the fetch fails.
+
+### 4d. SKAdNetwork Configuration
+Include **SKAdNetwork** configuration in `Info.plist` for attribution tracking. This enables future Apple Search Ads campaigns to attribute installs correctly. Add the `SKAdNetworkItems` array with Apple's own network ID and any ad network IDs specified in the spec. At minimum, include:
+```xml
+<key>SKAdNetworkItems</key>
+<array>
+    <dict>
+        <key>SKAdNetworkIdentifier</key>
+        <string>cstr6suwn9.skadnetwork</string>
+    </dict>
+</array>
+```
+This is a zero-cost addition that enables attribution from day one without requiring any runtime code.
+
 ### 5. If the spec calls for AI features
 Use `templates/swiftui/GeminiWrapper.swift`. Never hardcode API keys. Use a secure configuration approach.
 

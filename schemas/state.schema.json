@@ -65,6 +65,31 @@
         "last_updated": { "type": ["string", "null"] }
       }
     },
+    "human_approved_submission": { "type": "boolean", "default": false },
+    "human_approved_spec": { "type": "boolean", "default": false },
+    "auto_approved": { "type": "boolean", "default": false },
+    "auto_approved_reason": { "type": ["string", "null"] },
+    "phase_context": {
+      "type": "object",
+      "description": "Written by Router before spawning an agent — tells the agent why it was invoked",
+      "properties": {
+        "reason": { "type": "string" },
+        "priority": { "type": "string", "enum": ["normal", "high", "rush"] },
+        "flags": { "type": "array", "items": { "type": "string" } },
+        "previous_agent_session_id": { "type": ["string", "null"] }
+      }
+    },
+    "fixing": {
+      "type": "object",
+      "description": "State for the 'fixing' phase — when Apple rejects and automated remediation is in progress",
+      "properties": {
+        "rejection_reason_code": { "type": "string" },
+        "rejection_notes": { "type": "string" },
+        "fix_type": { "type": "string", "enum": ["metadata", "code", "policy", "manual"] },
+        "routed_to_agent": { "type": "string", "enum": ["shipper", "builder", "architect", "human"] },
+        "fix_attempt": { "type": "integer", "default": 1 }
+      }
+    },
     "flags": { "type": "array", "items": { "type": "string" } },
     "notes": { "type": "array", "items": { "type": "string" } }
   }

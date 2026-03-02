@@ -152,6 +152,8 @@ This prevents scope creep, feature additions that weren't validated, and subject
 
 10. **Compilation check**: The Builder runs `xcodebuild` to verify the project compiles. If it doesn't compile, the Builder fixes the errors before outputting.
 
+> **Gate 0: Compilation** — After the Builder completes, the Router runs an external `xcodebuild build` check before spawning the Reviewer. If compilation fails, the project is sent straight back to the Builder for revision without wasting Reviewer tokens. This is a hard gate: no Reviewer session is created until the project compiles cleanly.
+
 ### Template Usage
 
 The Builder doesn't start from scratch. It uses these templates:
@@ -169,6 +171,37 @@ These templates handle the boilerplate. The Builder focuses on the unique featur
 
 ---
 
+## Phase 4.5: Lint
+
+**Agent:** Linter (Haiku)
+**Duration:** 2-5 minutes
+**Input:** `src/` (complete Xcode project)
+**Output:** `lint_report.json`
+**Gate:** Hard fail if >5 issues or any critical flag; soft fail proceeds with lint report attached
+
+### What Happens
+
+After the Builder completes and Gate 0 (compilation) passes, the Router spawns a lightweight Haiku-based lint pass before engaging the Reviewer. This catches obvious issues cheaply, before burning expensive Codex tokens on review.
+
+The Linter scans for:
+
+1. **Force unwraps** (`!`): Any use of `!` outside of IBOutlet patterns is flagged.
+2. **Missing permissions**: Cross-references Info.plist `NS*UsageDescription` keys against actual framework imports (HealthKit, Camera, Location, etc.). Flags permissions that are used but undeclared, or declared but unused.
+3. **Dead code**: Detects unused imports, unreachable functions, and commented-out code blocks.
+4. **Placeholder text**: Scans all `.swift` files and asset catalogs for "Lorem ipsum", "TODO", "FIXME", "placeholder", "test", and similar strings in user-facing contexts.
+
+### Failure Modes
+
+- **Hard fail (>5 issues OR any critical flag)**: The project skips Review entirely and goes straight back to the Builder with the lint report. No Reviewer tokens are spent. Critical flags include: force unwraps in data persistence code, missing privacy permissions for HealthKit/Location/Camera, or placeholder text in onboarding screens.
+- **Soft fail (1-5 non-critical issues)**: The project proceeds to Review, but the lint report is attached to the Reviewer's input. The Reviewer can factor lint issues into its scoring.
+- **Clean pass (0 issues)**: Proceed to Review without the lint report.
+
+### Why Haiku
+
+Haiku is fast and cheap. A lint pass costs ~$0.01-0.03 and takes 2-5 minutes. Catching a force unwrap before Codex runs saves $0.50-1.00 in Reviewer tokens and 10-20 minutes of review time. Over hundreds of builds, this adds up significantly.
+
+---
+
 ## Phase 5: Review
 
 **Agent:** Reviewer (GPT-5.3-Codex)
@@ -182,6 +215,12 @@ These templates handle the boilerplate. The Builder focuses on the unique featur
 The Reviewer reads every file in the project and runs 6 independent quality gates. See [Quality Gates](06_QUALITY_GATES.md) for the full specification.
 
 **Key principle:** The Reviewer uses a different model (GPT-5.3-Codex) than the Builder (Opus 4.6). This is intentional. If the same model builds and reviews, it's likely to miss its own patterns of errors. Cross-model review catches more issues.
+
+### Incremental Review
+
+On attempt 2 and beyond, the Reviewer operates in **incremental mode**. Instead of re-checking all 6 gates from scratch, it only re-evaluates the gates that previously failed or had issues flagged. Gates that scored 9 or 10 with no issues are carried forward from the previous review.
+
+This cuts revision review time by 50-60% and reduces Reviewer token costs proportionally. The Router signals incremental mode by passing `mode: "incremental"` and the previous `quality.json` to the Reviewer. The Reviewer merges carried-forward gate scores with freshly evaluated gates to produce the updated report.
 
 ### Failure Handling
 
@@ -207,6 +246,8 @@ The Reviewer reads every file in the project and runs 6 independent quality gate
 5. **Set up RevenueCat**: Register the app in RevenueCat, configure webhook for server-side notifications
 6. **Verify StoreKit configuration**: Ensure product IDs in the code match the App Store Connect configuration
 
+> **Monetize and Package run in parallel.** The Router spawns both Shipper modes simultaneously. Icon generation, screenshot scripts, and ASO copy (Package) don't depend on App Store Connect product configuration (Monetize). Both phases write to separate output paths and the Router waits for both to complete before transitioning to Ship. This shaves 20-40 minutes off the pipeline.
+
 ---
 
 ## Phase 7: Package
@@ -222,7 +263,7 @@ The Reviewer reads every file in the project and runs 6 independent quality gate
 
 2. **Screenshot capture**:
    - Write XCUITest scripts that navigate to each key screen
-   - Run `fastlane snapshot` on simulators: iPhone 15, iPhone 15 Plus, iPhone 15 Pro Max, iPad Pro 12.9"
+   - Run `fastlane snapshot` on simulators: iPhone 16 Pro Max, iPhone 16, iPad Pro 13" (M4)
    - Capture 5-8 screenshots per device showing the app's key features
    - Frame with `fastlane frameit` — add device bezels and marketing headlines
 
@@ -293,6 +334,35 @@ In the Control Panel, you'll see a "Ready to Ship" queue. Tap an app to see its 
 
 ---
 
+## Phase Context
+
+Before spawning any agent, the Router writes a `phase_context` object to the project's `state.json`. This gives every agent immediate awareness of why it was invoked and what happened before it, without needing to parse previous conversation history.
+
+The `phase_context` object contains:
+
+| Field | Description |
+|-------|-------------|
+| `reason` | Why this agent is being invoked (e.g., "initial_build", "revision_after_review_failure", "lint_hard_fail") |
+| `priority` | Priority level: `normal`, `high` (revision), or `critical` (3rd attempt) |
+| `flags` | Relevant flags for this invocation (e.g., `["incremental_review", "lint_soft_fail"]`) |
+| `previous_session_id` | Session ID of the last agent that touched this project, for traceability |
+
+Example:
+```json
+{
+  "phase_context": {
+    "reason": "revision_after_review_failure",
+    "priority": "high",
+    "flags": ["incremental_review", "lint_clean"],
+    "previous_session_id": "review-abc123-20260302"
+  }
+}
+```
+
+This ensures agents never operate blind. A Builder in revision mode immediately knows it was triggered by a review failure, what the priority level is, and which Reviewer session produced the feedback.
+
+---
+
 ## Pipeline Timing
 
 For a single app, assuming no review failures:
@@ -303,11 +373,13 @@ For a single app, assuming no review failures:
 | Validate | 10-20 min | 50 min |
 | Spec | 20-40 min | 1.5 hrs |
 | Build | 30-90 min | 3 hrs |
+| Lint | 2-5 min | 3.1 hrs |
 | Review | 10-20 min | 3.5 hrs |
-| Monetize | 10-15 min | 3.75 hrs |
-| Package | 20-40 min | 4.5 hrs |
-| Ship | 10-20 min | 5 hrs |
+| Monetize + Package | 20-40 min (parallel) | 4 hrs |
+| Ship | 10-20 min | 4.5 hrs |
 | Apple Review | 24-72 hrs | 3-4 days |
+
+> **Note:** Monetize and Package run in parallel, so their durations are not additive. The cumulative time reflects the longer of the two (Package). The Lint phase adds minimal overhead (2-5 minutes) but saves significant time by catching issues before the expensive Review phase.
 
 **With 5 concurrent projects**, the factory is always working on something. While one app is in Apple review, others are building, reviewing, or researching.
 

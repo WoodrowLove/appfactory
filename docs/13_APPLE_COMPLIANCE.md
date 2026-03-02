@@ -247,3 +247,120 @@ Track account health metrics:
 5. **Contact Apple Developer support**: Proactively explain your development approach
 
 The factory's long-term success depends on maintaining a healthy relationship with Apple's review team. This is a marathon, not a sprint.
+
+## Multi-Account Strategy (Year 2+)
+
+Once the factory has proven its pipeline with the first developer account and shipped 8-10 successful apps, plan for operating 2-3 developer accounts at different maturity stages. This reduces concentration risk and increases total submission throughput.
+
+### Account Isolation Strategy
+
+Each developer account must be treated as a completely independent entity. Apple's review team can and does cross-reference accounts, so isolation must be thorough:
+
+**Hard rules — no two accounts should ever:**
+- Submit visually similar apps (shared design language, color palettes, or icon styles)
+- Use overlapping app names, keywords, or marketing copy
+- Share code-signing certificates or provisioning profiles
+- Link to the same support website or privacy policy URL
+- Reference each other in app descriptions or marketing materials
+
+**Each account maintains its own:**
+- Differentiation matrix (independent `app_catalog` table per account)
+- Color palette registry (no color reuse across accounts)
+- Navigation pattern inventory
+- Icon style guide
+- Support email domain (e.g., `support@brand-a.com`, `support@brand-b.com`)
+- Privacy policy and terms of service URLs
+- App Store Connect API credentials
+
+**Account maturity stages:**
+| Stage | Account Age | Apps Live | Submission Pace | Risk Level |
+|-------|-------------|-----------|-----------------|------------|
+| New | 0-6 months | 0-3 | 1 app/month | High (under scrutiny) |
+| Established | 6-18 months | 4-8 | 2 apps/month | Medium |
+| Mature | 18+ months | 8+ | 3-4 apps/month | Low |
+
+New accounts should start slow — submit one high-quality app, wait for approval, maintain it with updates, then gradually increase submission pace. Rushing submissions on a new account is the fastest way to trigger 4.3 scrutiny.
+
+**Configuration:**
+```yaml
+# In openclaw.yaml
+accounts:
+  - id: "primary"
+    team_id: "XXXXXXXXXX"
+    email: "dev@brand-a.com"
+    status: "mature"
+    max_concurrent_submissions: 5
+    apps: ["routine-rest", "focus-timer", "budget-buddy"]
+  - id: "secondary"
+    team_id: "YYYYYYYYYY"
+    email: "dev@brand-b.com"
+    status: "new"
+    max_concurrent_submissions: 2
+    apps: []
+```
+
+The Router assigns new apps to accounts based on category fit, account maturity, and current submission load. Never assign a new app to a new account if it would result in more than one app in review simultaneously for that account.
+
+## Localization Strategy
+
+Localized App Store listings significantly increase impressions in non-English markets. Data consistently shows a **30-50% increase in App Store impressions** when listings are translated into the local language of a market.
+
+### Day 1 Languages
+
+Every app ships with **String Catalogs** configured for 5 languages from Day 1:
+
+| Language | Code | Market Size | Priority |
+|----------|------|-------------|----------|
+| English | `en` | US, UK, AU, CA | Primary |
+| Spanish | `es` | US Hispanic, Mexico, Spain, LATAM | High |
+| German | `de` | Germany, Austria, Switzerland | High |
+| French | `fr` | France, Canada, Belgium, Africa | High |
+| Japanese | `ja` | Japan (high ARPU market) | High |
+
+### What Gets Localized
+
+| Asset | Localized? | Method |
+|-------|-----------|--------|
+| App Store title | Yes | Marketer generates per-language titles |
+| App Store subtitle | Yes | Marketer generates per-language subtitles |
+| App Store description | Yes | Marketer generates per-language descriptions |
+| App Store keywords | Yes | Marketer researches per-language keywords |
+| Screenshots (text overlays) | Yes | Frameit generates per-language framed screenshots |
+| In-app strings | Yes | String Catalogs with AI-assisted translation |
+| In-app UI | Partially | Layout adapts via SwiftUI's built-in localization support |
+
+### Implementation
+
+**String Catalogs (Xcode 15+):**
+The Builder configures `Localizable.xcstrings` in every app project. String Catalogs are Xcode's modern replacement for `.strings` files and support:
+- Automatic extraction of localizable strings from SwiftUI views
+- Pluralization rules per language
+- Device-specific variations
+- Export/import for translation workflows
+
+**Translation pipeline:**
+1. Builder creates the app with all user-facing strings wrapped in `String(localized:)` or `LocalizedStringKey`
+2. Xcode auto-generates the String Catalog with all extractable strings
+3. The Marketer (or a dedicated translation step) generates translations using AI, with review for quality
+4. Translated strings are imported back into the String Catalog
+5. Screenshots are regenerated per language using Fastlane snapshot with locale settings
+
+**Keyword research per locale:**
+The Scout runs keyword research independently for each language. A keyword that ranks well in English may have a better alternative in Spanish or Japanese. The Marketer maintains separate keyword strategies per locale.
+
+**App Store listing localization via Fastlane:**
+```ruby
+# Metadata directory structure
+# metadata/en-US/description.txt
+# metadata/es-ES/description.txt
+# metadata/de-DE/description.txt
+# metadata/fr-FR/description.txt
+# metadata/ja/description.txt
+
+lane :upload do
+  deliver(
+    metadata_path: "./metadata",  # Fastlane auto-detects locale subdirectories
+    # ...
+  )
+end
+```

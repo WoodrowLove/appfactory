@@ -10,6 +10,23 @@
   "phases_completed": {},
   "current_phase_started_at": "2026-03-02T00:00:00Z",
   "review_history": [],
+  "human_approved_submission": false,
+  "human_approved_spec": false,
+  "auto_approved": false,
+  "auto_approved_reason": null,
+  "phase_context": {
+    "reason": "",
+    "priority": "normal",
+    "flags": [],
+    "previous_agent_session_id": null
+  },
+  "fixing": {
+    "rejection_reason_code": null,
+    "rejection_notes": null,
+    "fix_type": null,
+    "routed_to_agent": null,
+    "fix_attempt": 0
+  },
   "submission": {
     "queued_at": null,
     "submitted_at": null,

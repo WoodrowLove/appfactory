@@ -264,6 +264,88 @@ We're excited to launch with:
 We'd love to hear your feedback — reach out at [support email].
 ```
 
+## TestFlight Soak Test
+
+Before submitting to App Store Review, every build is pushed to TestFlight for a 24-hour soak test. This catches runtime crashes, memory leaks, and edge-case failures that compilation and static analysis miss.
+
+**Process:**
+1. Shipper uploads the build to TestFlight via `fastlane pilot upload`
+2. A 24-hour timer starts in `state.json` (`soak_test_started_at`)
+3. During the soak period, the build runs on available test devices
+4. After 24 hours, the Shipper checks for crash reports via App Store Connect API
+5. If zero crashes: proceed to App Store submission
+6. If crashes detected: route back to Builder with crash symbolication data
+
+**Configuration in `openclaw.yaml`:**
+```yaml
+shipping:
+  testflight_soak_test:
+    enabled: false          # Disabled by default until TestFlight is set up
+    duration_hours: 24      # Minimum soak time before submission
+    max_crash_threshold: 0  # Any crash fails the soak test
+    auto_submit_after: true # Automatically submit to review if soak passes
+```
+
+Enable this once your Apple Developer account has TestFlight configured with at least one test device or internal tester group. The soak test adds 24 hours to the pipeline but significantly reduces the risk of a crash-related rejection (Guideline 2.1).
+
+## Phased Release (Canary Deployment)
+
+Instead of a binary ship-or-don't-ship decision, use Fastlane's `phased_release` option to roll out updates gradually over 7 days:
+
+**Rollout Schedule:**
+| Day | Percentage | Cumulative Users |
+|-----|-----------|-----------------|
+| 1 | 1% | 1% |
+| 2 | 2% | 2% |
+| 3 | 5% | 5% |
+| 4 | 10% | 10% |
+| 5 | 20% | 20% |
+| 6 | 50% | 50% |
+| 7 | 100% | 100% |
+
+**Implementation:**
+```ruby
+# In Fastfile, update the upload lane:
+lane :upload do
+  deliver(
+    submit_for_review: false,
+    automatic_release: false,
+    phased_release: true,   # Enable phased rollout
+    force: true,
+    metadata_path: "./metadata",
+    screenshots_path: "./screenshots"
+  )
+end
+```
+
+**Monitoring during rollout:**
+- The Shipper checks App Store Connect ratings daily during the phased release
+- If the app's average rating drops below **3.5 stars**, the Shipper pauses the rollout via the App Store Connect API
+- A paused rollout triggers a notification to the Router, which flags the project for human review
+- If the rating recovers (after a hotfix release), the rollout can be resumed
+- If the rating does not recover within 48 hours of pausing, consider pulling the release entirely
+
+Phased releases are especially valuable after the first few apps are live, as they protect the developer account's overall health by catching user-facing issues before full exposure.
+
+## Xcode Cloud Alternative
+
+Apple provides **25 free compute hours per month** with Xcode Cloud, included with every Apple Developer Program membership. This can offload builds from your local Mac and enable parallel builds.
+
+**Benefits:**
+- Frees up the local Mac for other tasks while builds run in the cloud
+- Enables parallel builds across multiple apps simultaneously
+- Apple-managed infrastructure means no Xcode version or simulator management
+- Built-in TestFlight distribution (builds go straight to TestFlight after success)
+- Integrates with App Store Connect for seamless submission
+
+**Trade-offs:**
+- 25 hours/month limits throughput to roughly 12-15 full builds (each ~1.5-2 hours including tests)
+- Less control over the build environment compared to local Fastlane
+- Requires source code to be hosted on a supported git provider (GitHub, GitLab, Bitbucket)
+- Additional compute hours beyond 25 cost $14.99/month per 25-hour block
+
+**Recommendation:** Consider Xcode Cloud as a complement to local Fastlane builds rather than a full replacement. Use it when the local Mac is busy with another build, or when you need to run builds for multiple apps concurrently. The free tier is sufficient for early-stage operations (2-3 apps/month), and the cost scales reasonably as throughput increases.
+
 ## Submission Pipeline
 
 ### Fastlane Configuration

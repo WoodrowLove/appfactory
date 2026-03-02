@@ -49,8 +49,33 @@
         "premium_tier": { "type": "string" },
         "price": { "type": "string" },
         "annual_price": { "type": "string" },
+        "lifetime_price": { "type": ["string", "null"], "description": "Optional lifetime purchase option (e.g. '$79.99')" },
         "trial": { "type": "string" },
-        "rationale": { "type": "string" }
+        "rationale": { "type": "string" },
+        "paywall_strategy": {
+          "type": "string",
+          "enum": ["onboarding_only", "contextual", "hybrid"],
+          "default": "hybrid",
+          "description": "hybrid = onboarding paywall + contextual trigger on premium feature tap"
+        },
+        "pricing_experiment": {
+          "type": "object",
+          "description": "RevenueCat Experiments config. Activated after 500 installs.",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "variants": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Price points to A/B test, e.g. ['$3.99', '$4.99', '$6.99']"
+            },
+            "min_installs_to_activate": { "type": "integer", "default": 500 }
+          }
+        },
+        "regional_pricing": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use App Store Connect alternate tier pricing for emerging markets"
+        }
       }
     },
     "differentiation": {
@@ -67,10 +92,32 @@
       "required": ["frameworks"],
       "properties": {
         "frameworks": { "type": "array", "items": { "type": "string" } },
-        "ai_integration": { "type": "string" },
+        "ai_integration": { "type": ["string", "null"], "description": "Gemini Flash feature description, or null if no AI features" },
         "data_storage": { "type": "string" },
         "min_ios": { "type": "string", "default": "17.0" },
-        "estimated_complexity": { "type": "string", "enum": ["simple", "medium", "complex"] }
+        "estimated_complexity": { "type": "string", "enum": ["simple", "medium", "complex"] },
+        "icp_integration": {
+          "type": "object",
+          "description": "ICP canister integration config. Null/omitted if no ICP needed.",
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "use_case": { "type": "string", "description": "What ICP is used for: audit_trail, trust_score, etc." },
+            "canister_type": { "type": "string", "enum": ["audit", "trust", "custom"] }
+          }
+        },
+        "localization": {
+          "type": "object",
+          "description": "Localization configuration for Day 1 multi-language support",
+          "properties": {
+            "primary_language": { "type": "string", "default": "en" },
+            "supported_languages": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": ["en", "es", "de", "fr", "ja"],
+              "description": "Top 5 App Store markets by default"
+            }
+          }
+        }
       }
     },
     "app_store": {

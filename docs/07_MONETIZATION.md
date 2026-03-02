@@ -195,6 +195,59 @@ struct PremiumGateModifier: ViewModifier {
 }
 ```
 
+## Contextual Paywalls
+
+Contextual paywalls — triggered the moment a user taps a premium feature — convert 2-3x better than paywalls shown only during onboarding. When a user is actively trying to accomplish something and hits a premium gate, their intent is at its peak. That is the highest-converting moment to present an upgrade prompt.
+
+The default `paywall_strategy` in `onepager.json` should be `"hybrid"`:
+- Show the paywall **once** during onboarding (introduces the premium tier)
+- Show the paywall **again** when the user taps any gated feature (captures high-intent moments)
+
+This hybrid approach maximizes both awareness (onboarding) and conversion (contextual).
+
+### PremiumFeatureButton Modifier
+
+```swift
+// PremiumFeatureButton.swift
+struct PremiumFeatureButton<Label: View>: ViewModifier {
+    @Environment(StoreKitService.self) var store
+    @State private var showPaywall = false
+
+    let label: Label
+    let premiumAction: () -> Void
+
+    init(@ViewBuilder label: () -> Label, premiumAction: @escaping () -> Void) {
+        self.label = label()
+        self.premiumAction = premiumAction
+    }
+
+    func body(content: Content) -> some View {
+        Button {
+            if store.hasActiveSubscription {
+                premiumAction()
+            } else {
+                showPaywall = true
+            }
+        } label: {
+            label
+        }
+        .sheet(isPresented: $showPaywall) {
+            PaywallView(source: .contextual)
+        }
+    }
+}
+
+// Usage in any view:
+// Button with paywall gate
+PremiumFeatureButton {
+    Label("AI Insights", systemImage: "sparkles")
+} premiumAction: {
+    showAIInsights()
+}
+```
+
+The `PaywallView` receives a `source` parameter (`.onboarding` or `.contextual`) so RevenueCat can track which placement converts better.
+
 ## RevenueCat Integration
 
 RevenueCat provides subscription analytics and server-side receipt validation. It's optional but recommended for tracking key metrics.
@@ -230,6 +283,37 @@ Purchases.shared.logIn(appUserID) { customerInfo, created, error in
 | Refund rate | < 5% | High refund rate signals quality or expectation issues |
 | LTV (lifetime value) | > $15 | At $4.99/month with 10% churn, LTV = $49.90 |
 
+### RevenueCat Experiments
+
+A/B testing pricing is built into the pipeline from Day 1 — not bolted on later.
+
+After an app reaches **500 installs**, the system automatically begins A/B testing price points using RevenueCat Experiments. The typical test matrix is:
+
+- **Variant A:** $3.99/month
+- **Variant B:** $4.99/month (current default)
+- **Variant C:** $6.99/month
+
+RevenueCat splits users randomly and tracks trial start rate, trial-to-paid conversion, and LTV per cohort. After statistical significance is reached (usually 2-4 weeks at 500+ installs), the winning price is promoted to 100% of new users.
+
+The `onepager.json` schema now includes a `pricing_experiment` field:
+
+```json
+{
+  "monetization": {
+    "model": "freemium_subscription",
+    "base_price_monthly": 4.99,
+    "pricing_experiment": {
+      "enabled": true,
+      "min_installs_to_start": 500,
+      "variants": [3.99, 4.99, 6.99],
+      "primary_metric": "ltv"
+    }
+  }
+}
+```
+
+This ensures every app is automatically price-optimized once it has enough traffic. No manual intervention required.
+
 ## Pricing Strategy
 
 ### Research-Backed Defaults
@@ -251,6 +335,42 @@ Annual subscriptions should offer a 40-50% discount over monthly:
 - $2.99/month → $19.99/year (44% off)
 
 Annual plans reduce churn (users commit for a year) and increase LTV.
+
+### Lifetime Purchase Option
+
+Alongside monthly and yearly subscriptions, offer a **$79.99 lifetime purchase** for every subscription app. This is a one-time payment that grants permanent premium access.
+
+**Why offer lifetime:**
+- Lifetime purchasers have **zero churn** — they never cancel because there is nothing to cancel
+- Net revenue per user is lower than a subscriber who stays 16+ months, but it captures **price-sensitive users who categorically refuse subscriptions**
+- These users would otherwise never convert. A lifetime option turns them from free users into paying customers
+- Lifetime purchases create goodwill and positive reviews ("love that they offer a lifetime option")
+
+**Revenue math:**
+- $79.99 × 0.70 (Apple's cut) = **$55.99 net**
+- A $4.99/month subscriber who stays 12 months = $4.99 × 12 × 0.70 = $41.92 net
+- So a lifetime purchase is actually more profitable than subscribers who churn within 16 months
+
+RevenueCat tracks both subscription and lifetime purchase revenue in the same dashboard. Configure the lifetime product in App Store Connect as a non-consumable IAP and add it to the paywall as a third option below monthly and yearly.
+
+### Regional Pricing
+
+$4.99 USD should **not** be directly converted to local currency. A direct conversion makes the app unaffordable in emerging markets — $4.99 USD converts to approximately ₹415 INR, which is wildly overpriced for the Indian market.
+
+Instead, use App Store Connect's **alternate price tier system** to set region-appropriate prices:
+
+| Region | Monthly Price | Equivalent USD | Rationale |
+|--------|--------------|----------------|-----------|
+| United States | $4.99 | $4.99 | Base price |
+| India | ₹129 | ~$1.55 | Price for volume in a massive market |
+| Brazil | R$9.90 | ~$1.90 | Adjusted for local purchasing power |
+| Indonesia | Rp 29,000 | ~$1.80 | Southeast Asia pricing |
+| Turkey | ₺49.99 | ~$1.50 | High-inflation market |
+| EU / UK / Japan | Market rate | ~$4.99 | Similar purchasing power to US |
+
+Lower regional prices dramatically increase installs in emerging markets. A user paying ₹129/month who stays for a year generates more revenue than a user in India who never subscribes because ₹415/month is too expensive.
+
+The **Shipper agent** configures regional pricing automatically using the App Store Connect API. It reads the base price from `onepager.json` and applies the regional multiplier table above when creating the subscription in App Store Connect. No manual price configuration needed.
 
 ### Pricing Iteration
 
@@ -287,6 +407,88 @@ The Revenue tab shows:
 - Churn trends
 - Projected revenue (based on current growth rate)
 - LTV analysis
+
+## In-App Cross-Promotion
+
+Build a **"More from AppFactory"** section in the Settings screen of every app. This module dynamically displays other apps in the portfolio with their icons, names, short descriptions, and direct App Store links.
+
+This is the **highest-converting cross-sell channel** available and it costs nothing — no ad spend, no third-party networks, no revenue share. Users who already like one of your apps are the most likely audience to download another.
+
+**How it works:**
+- The Builder template includes a `CrossPromotionView` module in the Settings tab
+- The module fetches a lightweight JSON manifest from a CDN (or bundled at build time) listing all published AppFactory apps
+- It filters out the current app (no self-promotion) and shows the rest
+- Each entry links to the App Store via `itms-apps://` URL scheme
+- The module is unobtrusive — it sits at the bottom of Settings, not in the main experience
+
+**Example manifest:**
+```json
+{
+  "apps": [
+    {
+      "name": "FocusTimer Pro",
+      "bundle_id": "com.appfactory.focustimer",
+      "app_store_id": "1234567890",
+      "tagline": "Stay focused. Get things done.",
+      "icon_url": "https://cdn.appfactory.dev/icons/focustimer.png"
+    }
+  ]
+}
+```
+
+As the portfolio grows, every new app automatically becomes a distribution channel for every other app. This creates a flywheel: more apps = more cross-promotion surface = more installs = more revenue.
+
+## Win-Back Campaigns
+
+When a subscriber churns, they are not gone forever. RevenueCat **promotional offers** allow you to offer a churned subscriber 1 month free to come back.
+
+**How it works:**
+1. RevenueCat fires a webhook when a subscription expires (churn event)
+2. The **Marketer agent** receives the event and waits 7 days (let the user feel the absence of premium features)
+3. After 7 days, the Marketer agent triggers a promotional offer via RevenueCat
+4. The user receives a push notification or in-app message: "We miss you! Enjoy 1 month of Premium on us."
+5. If the user accepts, their subscription reactivates with a free month, then resumes billing
+
+**Why this works:**
+- The user already demonstrated willingness to pay (they subscribed once)
+- 1 free month costs nothing in marginal terms (no server costs for most apps)
+- Win-back rates of 10-20% are typical, which directly reduces net churn
+- RevenueCat handles the promotional offer mechanics — no custom StoreKit code needed
+
+**Configuration:**
+- Create promotional offers in App Store Connect for each subscription product
+- Add the promotional offer signature key to RevenueCat
+- The Marketer agent's win-back workflow triggers automatically — no manual campaigns
+
+## SKAdNetwork Attribution
+
+Every app template includes **SKAdNetwork attribution configuration** out of the box. This enables Apple's privacy-preserving ad attribution framework, which is essential for measuring the effectiveness of any future Apple Search Ads campaigns.
+
+**What SKAdNetwork does:**
+- Allows ad networks (including Apple Search Ads) to attribute app installs without revealing user-level data
+- Works within Apple's App Tracking Transparency (ATT) framework — no user permission prompt required
+- Reports conversion values back to ad networks so you can measure which ads drive paying users, not just installs
+
+**Template configuration:**
+
+In `Info.plist`, the Builder template includes the SKAdNetwork identifiers for Apple Search Ads and common ad networks:
+
+```xml
+<key>SKAdNetworkItems</key>
+<array>
+    <dict>
+        <key>SKAdNetworkIdentifier</key>
+        <!-- Apple Search Ads -->
+        <string>YDX93A7ASS.skadnetwork</string>
+    </dict>
+</array>
+```
+
+**Why include this from Day 1:**
+- Adding SKAdNetwork later requires an app update and resubmission
+- Apple Search Ads is the highest-intent iOS ad channel (users are already searching for your category)
+- Even if you do not run ads at launch, the configuration is ready when you are
+- The Shipper agent ensures the correct network identifiers are included in every build
 
 ## Anti-Patterns to Avoid
 

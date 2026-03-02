@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AppFactory App Store Listing",
   "type": "object",
-  "required": ["app_name", "title", "subtitle", "description", "keywords", "whats_new", "privacy_url", "support_url", "age_rating"],
+  "required": ["app_name", "title", "subtitle", "description", "keywords", "whats_new", "privacy_url", "terms_url", "support_url", "age_rating"],
   "properties": {
     "app_name": { "type": "string" },
     "bundle_id": { "type": "string" },
@@ -12,6 +12,7 @@
     "keywords": { "type": "string", "maxLength": 100 },
     "whats_new": { "type": "string", "maxLength": 4000 },
     "privacy_url": { "type": "string", "format": "uri" },
+    "terms_url": { "type": "string", "format": "uri" },
     "support_url": { "type": "string", "format": "uri" },
     "age_rating": { "type": "string" },
     "primary_category": { "type": "string" },
@@ -26,6 +27,24 @@
     },
     "preview_video": { "type": "string" },
     "icon_path": { "type": "string" },
+    "phased_release": {
+      "type": "boolean",
+      "default": true,
+      "description": "Roll out over 7 days: 1%, 2%, 5%, 10%, 20%, 50%, 100%"
+    },
+    "localized_listings": {
+      "type": "object",
+      "description": "Localized title/subtitle/description per language code",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string", "maxLength": 30 },
+          "subtitle": { "type": "string", "maxLength": 30 },
+          "description": { "type": "string", "maxLength": 4000 },
+          "keywords": { "type": "string", "maxLength": 100 }
+        }
+      }
+    },
     "generated_at": { "type": "string", "format": "date-time" }
   }
 }
