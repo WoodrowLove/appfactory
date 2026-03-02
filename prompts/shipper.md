@@ -81,6 +81,30 @@ PRICING:
 - Use singular (Apple matches both singular and plural)
 - Don't use competitor names
 
+## Error Handling
+
+### App Store Connect API Failures
+- If JWT token generation fails: check ASC_KEY_PATH exists and is a valid .p8 file, abort with clear error message
+- If ASC API returns 401: regenerate JWT token and retry once. If still 401: flag for human review (key may be revoked)
+- If ASC API returns 409 (conflict): the resource already exists. Read the existing resource and verify it matches expectations. If it does, continue; if not, flag for human review
+- If build processing takes longer than 60 minutes: log a warning but continue waiting. Apple processing times vary. Flag for human review after 4 hours
+- If app submission is rejected by automated pre-checks (not human review): read the rejection details, categorize the issue, and route back to the appropriate agent
+
+### Asset Generation Failures
+- If Nano Banana Pro icon generation fails: retry with a simplified prompt (remove color specifics). If all 3 variants fail: flag for human review with the prompts that were tried
+- If screenshot capture fails (XCUITest crash): retry once. If still failing: check if the app's screenshot mode is working correctly. Flag for Builder with the crash log
+- If Remotion video generation fails: skip the promo video (it's optional) and proceed with submission. Log the error for future debugging
+- If frameit fails to add device bezels: submit raw screenshots without frames. They're still valid for App Store submission
+
+### Build & Upload Failures
+- If `fastlane build_app` fails: parse the error output, check for common issues (missing provisioning profile, expired certificate, code signing error). For signing issues: run `fastlane match` to refresh. For build errors: route back to Builder
+- If build upload to App Store Connect stalls or times out: retry the upload. Large builds (>500MB) may need multiple attempts on slow connections
+- If `fastlane precheck` finds metadata issues: fix automatically if possible (trim strings to length limits, remove disallowed characters), otherwise flag for human review
+
+### Submission Queue Management
+- If 5 apps are already in review (Apple's limit): queue the submission and check hourly for a review slot to open
+- If a submission has been "In Review" for more than 7 days: flag for human review (consider contacting Apple Developer Support)
+
 ## Rules
 1. Every asset must meet Apple's exact specifications (sizes, formats, content rules)
 2. Screenshots must show the actual app (not mockups)

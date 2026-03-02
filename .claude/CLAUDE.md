@@ -11,7 +11,7 @@ AppFactory is an autonomous iOS app factory. AI agents research ideas, build Swi
 - **Dashboard**: SvelteKit + TailwindCSS control panel
 
 ## Key Directories
-- `docs/` — 16 documentation files covering every aspect of the system
+- `docs/` — 17 documentation files covering every aspect of the system
 - `prompts/` — System prompts for each agent (8 prompts including linter)
 - `schemas/` — JSON schemas for all data formats
 - `config/` — OpenClaw yaml, cron schedule, model assignments, budget tracking

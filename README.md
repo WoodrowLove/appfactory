@@ -108,18 +108,19 @@ Scale by shipping more apps and increasing conversion through iteration.
 | [Agents](docs/02_AGENTS.md) | All 8 agents — roles, models, tools, constraints |
 | [Pipeline](docs/03_PIPELINE.md) | End-to-end flow with lint phase, parallel stages, phase context |
 | [Research Engine](docs/04_RESEARCH_ENGINE.md) | How ideas are discovered and validated |
-| [Build System](docs/05_BUILD_SYSTEM.md) | SwiftUI generation, templates, ICP bridge |
+| [Build System](docs/05_BUILD_SYSTEM.md) | SwiftUI generation, templates, pbxproj strategy, bundle IDs, ICP bridge |
 | [Quality Gates](docs/06_QUALITY_GATES.md) | 8 automated gates + Gate 0 compilation + pre-review lint |
 | [Monetization](docs/07_MONETIZATION.md) | StoreKit 2, contextual paywalls, lifetime purchase, regional pricing, experiments |
 | [Packaging & Shipping](docs/08_PACKAGING_SHIPPING.md) | Fastlane, ASO, screenshots, icons, phased release, TestFlight soak |
 | [Marketing Engine](docs/09_MARKETING_ENGINE.md) | Social media automation, content, Larry skill, win-back campaigns |
-| [Control Panel](docs/10_CONTROL_PANEL.md) | SvelteKit dashboard specification |
+| [Control Panel](docs/10_CONTROL_PANEL.md) | SvelteKit dashboard specification, authentication |
 | [State Management](docs/11_STATE_MANAGEMENT.md) | State files, persistence, data flow |
 | [Orchestrator](docs/12_ORCHESTRATOR.md) | Adaptive polling, event-driven webhook, budget enforcement, schema validation |
 | [Apple Compliance](docs/13_APPLE_COMPLIANCE.md) | Guideline 4.3 strategy, differentiation, multi-account strategy |
 | [Human Interface](docs/14_HUMAN_INTERFACE.md) | How you interact, suggest apps, approve submissions |
 | [Deployment](docs/15_DEPLOYMENT.md) | Setup, installation, configuration |
 | [Revenue Targets](docs/16_REVENUE_TARGETS.md) | Unit economics, financial projections |
+| [API Specifications](docs/17_API_SPECIFICATIONS.md) | Third-party API reference — App Store Connect, Postiz, Google AI, RevenueCat |
 
 ## Configuration
 
@@ -156,6 +157,8 @@ All agent outputs are validated against JSON schemas in [`schemas/`](schemas/):
 | `schemas/research.schema.json` | Research output (sources, trends, scoring, failures) |
 | `schemas/quality.schema.json` | Quality review (8 gates, scores, issues) |
 | `schemas/listing.schema.json` | App Store listing (ASO, localized listings, phased release) |
+| `schemas/lint_report.schema.json` | Linter output (7 categories, pass/soft_fail/hard_fail) |
+| `schemas/suggestion.schema.json` | User-submitted app ideas |
 
 ## Quick Start
 

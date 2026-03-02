@@ -352,6 +352,118 @@ Before the Builder declares a project complete, it must:
 
 If compilation fails, the Builder fixes errors and retries within the same session. The session only exits when the project compiles cleanly or the Builder has exhausted its ability to fix errors (in which case it flags the project for human review).
 
+## Xcode Project Generation Strategy
+
+The Builder agent programmatically creates an Xcode project from the template. This is a critical step because `.pbxproj` files are complex, containing cross-referenced GUIDs, and must be modified correctly to produce a valid project.
+
+### Strategy: Template Duplication + String Replacement
+
+The Builder does **NOT** generate `.pbxproj` files from scratch. Instead, it follows a deterministic copy-and-replace approach:
+
+### Step 1: Copy Template
+
+Copy `templates/swiftui/AppTemplate/` to `projects/<slug>/src/`.
+
+### Step 2: Rename Directory Structure
+
+| Original | Renamed |
+|----------|---------|
+| `AppTemplate.xcodeproj/` | `<AppName>.xcodeproj/` |
+| `AppTemplate/` | `<AppName>/` |
+| `AppTemplateTests/` | `<AppName>Tests/` |
+
+### Step 3: String Replacement in project.pbxproj
+
+- Replace all occurrences of `AppTemplate` with `<AppName>` (target name, product name, module name)
+- Replace bundle identifier `com.appfactory.template` with `com.appfactory.<slug>`
+- Replace `DEVELOPMENT_TEAM = TEMPLATE;` with the actual team ID from the `APPLE_TEAM_ID` environment variable
+- Replace `PRODUCT_BUNDLE_IDENTIFIER` value
+
+### Step 4: String Replacement in Source Files
+
+- `AppTemplateApp.swift` -> `<AppName>App.swift` (rename file **AND** update contents)
+- All `import AppTemplate` -> `import <AppName>`
+- Update `@main` struct name from `AppTemplateApp` to `<AppName>App`
+
+### Step 5: Info.plist Updates
+
+- Set `CFBundleDisplayName` to the app's display name (human-readable, from the spec)
+- Set `CFBundleIdentifier` to `com.appfactory.<slug>`
+- Set `CFBundleName` to `<AppName>`
+- Add required `NS*UsageDescription` keys based on frameworks used (e.g., `NSHealthShareUsageDescription` for HealthKit, `NSCameraUsageDescription` for camera access)
+
+### Step 6: Add New Files
+
+The Builder creates new Swift files for features (views, models, viewmodels) and adds them to the project. Since the project uses a flat file reference structure with the Xcode build system auto-discovery (or manually adding to the pbxproj's `PBXFileReference` and `PBXBuildFile` sections), new files are placed in the correct directories.
+
+### Why Not Generate From Scratch?
+
+- **pbxproj format is undocumented and fragile**: GUIDs, cross-references, and nested sections make programmatic generation error-prone
+- **Template-based approach is battle-tested**: Fastlane, XcodeGen, and other tools in the ecosystem validate this pattern
+- **The template is pre-configured**: Correct build settings, signing configuration, capabilities, and scheme settings are already in place
+- **String replacement is deterministic and debuggable**: Every replacement can be logged and verified
+
+### pbxproj Validation
+
+After modifications, run:
+
+```bash
+plutil -lint <AppName>.xcodeproj/project.pbxproj
+```
+
+This validates the file is syntactically correct (valid plist format). If it fails, the Builder flags the project for human review rather than attempting speculative fixes to the project file.
+
+### File Reference Management
+
+When the Builder adds new Swift files (feature views, models, viewmodels), it uses one of two strategies:
+
+- **Preferred: Folder references.** Use Xcode's "folder references" where files in a directory are automatically included in the build. This avoids pbxproj modifications for new files entirely.
+- **Fallback: Explicit file references.** If explicit file references are needed, generate new UUIDs (24-character hex strings) and add `PBXFileReference` + `PBXBuildFile` + `PBXGroup` entries following the pattern of existing entries in the template.
+
+## Bundle ID Naming Scheme
+
+### Convention
+
+All bundle identifiers follow the pattern: `com.appfactory.<slug>`
+
+Where `<slug>` is the project slug from `state.json` (lowercase, hyphenated, e.g., `routine-rest`).
+
+### Examples
+
+| App | Slug | Bundle ID |
+|-----|------|-----------|
+| RoutineRest | routine-rest | com.appfactory.routine-rest |
+| FocusTimer | focus-timer | com.appfactory.focus-timer |
+| BudgetBuddy | budget-buddy | com.appfactory.budget-buddy |
+
+### Product IDs
+
+Product identifiers for in-app purchases follow the pattern: `com.appfactory.<slug>.premium.<period>`
+
+| Period | Example |
+|--------|---------|
+| Monthly | `com.appfactory.routine-rest.premium.monthly` |
+| Yearly | `com.appfactory.routine-rest.premium.yearly` |
+| Lifetime | `com.appfactory.routine-rest.premium.lifetime` |
+
+### Subscription Group ID
+
+`com.appfactory.<slug>.subscription`
+
+This groups all subscription tiers for a single app, allowing users to upgrade or downgrade between monthly and yearly plans within the same group.
+
+### Uniqueness Enforcement
+
+The Router checks all existing `projects/*/state.json` files before creating a new project to ensure no slug collision. The slug is derived from the app name during the SPEC phase by the Architect agent.
+
+### Team ID
+
+Set from the `APPLE_TEAM_ID` environment variable. All apps share the same Apple Developer account and team ID.
+
+### Signing
+
+Managed by `fastlane match` with certificates stored in a private git repo. One distribution certificate covers all apps. The Builder does not manage certificates directly -- it relies on `fastlane match` to install and configure the correct provisioning profiles at build time.
+
 ## Dependencies Policy
 
 **Default: Zero external dependencies.**

@@ -30,6 +30,24 @@ Gate: Total score (demand + competition + feasibility) must be >= 21/30 to proce
 
 Output: Updated `research.json` with validation data.
 
+## Error Handling
+
+### API Failures
+- If Reddit API returns 429 (rate limited): wait 60 seconds and retry, max 3 retries
+- If X/Twitter API is unavailable: skip X data, proceed with other sources, note "X data unavailable" in research.json
+- If App Store search returns no results: try alternate keywords, broaden the search, document the empty result
+- If all external APIs fail: write research.json with available data, set a flag `"data_incomplete": true`, and note which sources were unavailable
+
+### Data Quality
+- If fewer than 3 data points support an idea: mark confidence as "low" in the scoring
+- If competitor data is stale (last update > 12 months ago): note this in the competition analysis
+- If demand score relies on a single viral post: discount by 2 points (viral ≠ sustained demand)
+
+### Validation Failures
+- If the four-tier validation score is borderline (18-20): include a `"borderline_reason"` field explaining why it might still be viable
+- If Guideline 4.3 risk is detected (too similar to existing app): immediately document the overlap and recommend differentiation strategies rather than killing the idea outright
+- If keyword/search volume data is unavailable: estimate based on competitor download counts and note the estimation method
+
 ## Important Rules
 
 1. Every claim must have a source (URL, post ID, or specific data point)

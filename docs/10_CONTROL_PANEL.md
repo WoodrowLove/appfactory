@@ -14,6 +14,108 @@ The Control Panel is a SvelteKit web application that serves as your window into
 - **Charts**: Chart.js or Svelte-specific charting library
 - **Icons**: Lucide Icons
 
+## Authentication
+
+The Control Panel runs locally but must be protected against unauthorized access, especially if exposed on a network.
+
+### Local Mode (Default)
+
+When running on localhost only (the default), authentication is optional. The server binds to `127.0.0.1:3000` and is only accessible from the local machine. A startup banner warns if authentication is disabled:
+
+```
+⚠ Control Panel running without authentication (localhost only)
+  → Set AUTH_ENABLED=true in .env to enable authentication
+```
+
+### Authenticated Mode
+
+When `AUTH_ENABLED=true` is set in `.env`, the Control Panel requires authentication:
+
+**Method: Bearer Token (API Key)**
+
+1. On first run with auth enabled, the Control Panel generates a random 32-byte hex token and stores it in `.env` as `CONTROL_PANEL_TOKEN`
+2. The dashboard login page prompts for this token
+3. Once authenticated, a session cookie (HttpOnly, Secure, SameSite=Strict) is set with a 24-hour TTL
+4. All API endpoints and WebSocket connections require either:
+   - A valid session cookie, OR
+   - An `Authorization: Bearer <token>` header
+
+**Implementation:**
+
+```typescript
+// src/hooks.server.ts (SvelteKit server hook)
+import { env } from '$env/dynamic/private';
+
+export const handle = async ({ event, resolve }) => {
+  if (env.AUTH_ENABLED !== 'true') {
+    return resolve(event);
+  }
+
+  const sessionToken = event.cookies.get('session');
+  const authHeader = event.request.headers.get('Authorization');
+
+  const isAuthenticated =
+    sessionToken === env.CONTROL_PANEL_TOKEN ||
+    authHeader === `Bearer ${env.CONTROL_PANEL_TOKEN}`;
+
+  if (!isAuthenticated && !event.url.pathname.startsWith('/login')) {
+    return new Response(null, {
+      status: 302,
+      headers: { Location: '/login' }
+    });
+  }
+
+  return resolve(event);
+};
+```
+
+**Login page:**
+
+```
+┌────────────────────────────────────────────────────────┐
+│                                                        │
+│                    🏭 AppFactory                       │
+│                                                        │
+│          Enter your Control Panel token:               │
+│          ┌──────────────────────────────┐             │
+│          │ ●●●●●●●●●●●●●●●●●●●●●●●●●● │             │
+│          └──────────────────────────────┘             │
+│                                                        │
+│          [Sign In]                                     │
+│                                                        │
+│          Token is in your .env file as                 │
+│          CONTROL_PANEL_TOKEN                           │
+│                                                        │
+└────────────────────────────────────────────────────────┘
+```
+
+### WebSocket Authentication
+
+WebSocket connections to the live activity feed also require authentication:
+
+```javascript
+// Client-side: pass token as query parameter
+const token = getCookie('session') || prompt('Enter token');
+const ws = new WebSocket(`ws://localhost:3001/activity?token=${token}`);
+```
+
+The server validates the token before upgrading the connection. Invalid tokens receive a 401 and the connection is closed.
+
+### Network Exposure
+
+If the Control Panel needs to be accessed from another device (e.g., phone or tablet):
+
+1. Set `HOST=0.0.0.0` in `.env` to bind to all interfaces
+2. Set `AUTH_ENABLED=true` (mandatory when not localhost)
+3. Use HTTPS via a reverse proxy (nginx, Caddy) — the Control Panel itself serves HTTP
+4. Consider Tailscale or WireGuard for secure remote access without exposing ports
+
+**Security notes:**
+- Never expose the Control Panel to the public internet without a reverse proxy and HTTPS
+- The token is stored in `.env` alongside other secrets — protect this file
+- Session cookies use HttpOnly + SameSite=Strict to prevent XSS and CSRF
+- Rate limit the login endpoint: 5 attempts per minute per IP
+
 ## Pages
 
 ### 1. Dashboard (Home)

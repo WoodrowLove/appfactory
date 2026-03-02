@@ -55,6 +55,26 @@ Write explicit statements for:
 - Minimum iOS version (default: 17.0)
 - Complexity estimate (simple/medium/complex)
 
+## Error Handling
+
+### Input Validation
+- If research.json is missing or malformed: abort and set state to `flagged` with note "Missing or invalid research data"
+- If research.json has `data_incomplete: true`: proceed with available data but add a `"spec_confidence": "low"` field to onepager.json and flag for human review of the spec
+- If competition score is below 5: warn that the market may be too competitive and recommend a stronger differentiation angle
+
+### Spec Conflicts
+- If a required framework (e.g., HealthKit) is not feasible for the target user demographic: document the conflict and suggest an alternative approach (e.g., manual entry instead of HealthKit sync)
+- If the differentiation matrix shows the app overlaps significantly with an existing AppFactory app: do NOT proceed. Set state to `flagged` with a note explaining the overlap and suggesting how to pivot
+
+### Schema Validation
+- Validate onepager.json against `schemas/onepager.schema.json` before writing
+- If validation fails: fix the schema errors and retry, max 3 attempts
+- If validation still fails after 3 attempts: write the file anyway, add a `"schema_valid": false` flag, and set state to `flagged`
+
+### Complexity Estimation
+- If estimated complexity is "complex" and more than 8 screens are specified: flag for human review with a note that the scope may be too large for a single build cycle
+- If AI features are required but no Gemini API key is configured: remove AI features from the spec and add them to the "deferred (v2)" list with a note
+
 ## Rules
 
 1. The spec is a contract. The Builder implements exactly what you specify.

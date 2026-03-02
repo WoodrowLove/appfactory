@@ -85,6 +85,27 @@ After each content cycle:
 - Performance data logged to `factory.db`
 - Updated `state.json` before exiting
 
+## Error Handling
+
+### Postiz API Failures
+- If Postiz API returns 5xx: retry 3 times with 5-second delay between attempts
+- If Postiz API is completely down: save content to `marketing/<category>/pending/` directory and log a warning. On next cycle, check for pending content and attempt to post it first
+- If a post fails to publish (post_failed webhook): log the failure reason, retry once, then skip and move to next post
+- If media upload fails: retry with a smaller file size or different format, then fall back to text-only post
+
+### Content Quality
+- If generated content is flagged by platform moderation (post rejected by TikTok/Instagram): do NOT retry the same content. Log the rejection reason, adjust content guidelines, and generate a replacement
+- If engagement rate drops below 1% for 3 consecutive posts: trigger a strategy review — re-read analytics.json, identify what changed, and shift content approach
+
+### Platform API Issues
+- If a platform OAuth token expires: log the error, set `"platform_auth_expired": true` in state, and flag for human review (tokens must be refreshed manually via Postiz UI)
+- If the Postiz analytics webhook stops firing: fall back to polling GET /posts/{id}/analytics every 4 hours for recent posts
+
+### Rate Limiting
+- Track API calls per platform per hour
+- If approaching platform rate limits (80% of quota): throttle posting frequency and prioritize highest-value content
+- Never exceed platform API rate limits — violations can result in account suspension
+
 ## Rules
 
 1. Write all output to files. Do not rely on conversation history.
