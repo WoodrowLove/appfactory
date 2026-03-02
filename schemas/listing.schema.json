@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AppFactory App Store Listing",
+  "type": "object",
+  "required": ["app_name", "title", "subtitle", "description", "keywords", "whats_new", "privacy_url", "support_url", "age_rating"],
+  "properties": {
+    "app_name": { "type": "string" },
+    "bundle_id": { "type": "string" },
+    "title": { "type": "string", "maxLength": 30 },
+    "subtitle": { "type": "string", "maxLength": 30 },
+    "description": { "type": "string", "maxLength": 4000 },
+    "keywords": { "type": "string", "maxLength": 100 },
+    "whats_new": { "type": "string", "maxLength": 4000 },
+    "privacy_url": { "type": "string", "format": "uri" },
+    "support_url": { "type": "string", "format": "uri" },
+    "age_rating": { "type": "string" },
+    "primary_category": { "type": "string" },
+    "secondary_category": { "type": "string" },
+    "screenshots": {
+      "type": "object",
+      "properties": {
+        "iphone_6_9": { "type": "array", "items": { "type": "string" } },
+        "iphone_6_1": { "type": "array", "items": { "type": "string" } },
+        "ipad_13": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "preview_video": { "type": "string" },
+    "icon_path": { "type": "string" },
+    "generated_at": { "type": "string", "format": "date-time" }
+  }
+}

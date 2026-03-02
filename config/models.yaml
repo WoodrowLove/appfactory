@@ -1,0 +1,67 @@
+# Model assignments for AppFactory agents
+# Update these when better models become available
+# Use plug-and-play approach: change the model, provide the API key, go
+
+version: "1.0"
+
+agents:
+  router:
+    model: "claude-sonnet-4-20250514"
+    provider: "anthropic"
+    role: "Orchestrator, routing, metadata, quick decisions"
+    cost_tier: "low"
+
+  scout:
+    model: "claude-sonnet-4-20250514"
+    provider: "anthropic"
+    role: "Research, validation, data analysis"
+    cost_tier: "low"
+
+  architect:
+    model: "claude-opus-4-20250514"
+    provider: "anthropic"
+    role: "Product specification, deep reasoning"
+    cost_tier: "high"
+
+  builder:
+    model: "claude-opus-4-20250514"
+    provider: "anthropic"
+    role: "Full SwiftUI app generation"
+    cost_tier: "high"
+
+  reviewer:
+    model: "codex-5.3"
+    provider: "openai"
+    role: "Independent code review, quality scoring"
+    cost_tier: "medium"
+    notes: "Using different model family for cross-verification"
+
+  shipper:
+    model: "claude-sonnet-4-20250514"
+    provider: "anthropic"
+    role: "Fastlane pipeline, ASO, packaging"
+    cost_tier: "low"
+
+  marketer:
+    model: "claude-opus-4-20250514"
+    provider: "anthropic"
+    role: "Creative content, social media"
+    cost_tier: "high"
+
+# In-app AI (used inside the apps themselves, not in the factory)
+in_app:
+  model: "gemini-2.0-flash"
+  provider: "google"
+  role: "User-facing AI features inside apps"
+  cost_tier: "low"
+
+# Image generation
+image:
+  icons:
+    model: "nano-banana-pro"
+    provider: "google"
+    role: "App icon generation"
+  marketing:
+    model: "gpt-image-1.5"
+    provider: "openai"
+    role: "Social media visuals"

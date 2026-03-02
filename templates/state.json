@@ -1,0 +1,30 @@
+{
+  "slug": "example-app",
+  "app_name": "ExampleApp",
+  "category": "productivity",
+  "phase": "queued",
+  "status": "active",
+  "created_at": "2026-03-02T00:00:00Z",
+  "updated_at": "2026-03-02T00:00:00Z",
+  "source": "suggestion",
+  "phases_completed": {},
+  "current_phase_started_at": "2026-03-02T00:00:00Z",
+  "review_history": [],
+  "submission": {
+    "queued_at": null,
+    "submitted_at": null,
+    "review_result": null,
+    "live_at": null,
+    "rejection_count": 0,
+    "rejection_reasons": []
+  },
+  "revenue": {
+    "mrr": 0,
+    "total_revenue": 0,
+    "subscribers": 0,
+    "trial_starts": 0,
+    "last_updated": null
+  },
+  "flags": [],
+  "notes": []
+}

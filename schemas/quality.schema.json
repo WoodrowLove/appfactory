@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AppFactory Quality Report",
+  "type": "object",
+  "required": ["project_slug", "review_attempt", "timestamp", "gates", "overall_score", "pass"],
+  "properties": {
+    "project_slug": { "type": "string" },
+    "review_attempt": { "type": "integer", "minimum": 1, "maximum": 3 },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "gates": {
+      "type": "object",
+      "required": ["crash_safety", "permission_handling", "feature_completeness", "ui_ux_quality", "app_store_compliance", "code_quality"],
+      "properties": {
+        "crash_safety": { "$ref": "#/$defs/gate_result" },
+        "permission_handling": { "$ref": "#/$defs/gate_result" },
+        "feature_completeness": { "$ref": "#/$defs/gate_result" },
+        "ui_ux_quality": { "$ref": "#/$defs/gate_result" },
+        "app_store_compliance": { "$ref": "#/$defs/gate_result" },
+        "code_quality": { "$ref": "#/$defs/gate_result" }
+      }
+    },
+    "overall_score": { "type": "number", "minimum": 0, "maximum": 10 },
+    "pass": { "type": "boolean" },
+    "summary": { "type": "string" },
+    "blocking_issues": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/issue" }
+    },
+    "recommendations": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "$defs": {
+    "gate_result": {
+      "type": "object",
+      "required": ["score", "issues"],
+      "properties": {
+        "score": { "type": "number", "minimum": 0, "maximum": 10 },
+        "issues": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/issue" }
+        }
+      }
+    },
+    "issue": {
+      "type": "object",
+      "required": ["severity", "description"],
+      "properties": {
+        "severity": { "type": "string", "enum": ["critical", "high", "medium", "minor"] },
+        "file": { "type": "string" },
+        "line": { "type": "integer" },
+        "description": { "type": "string" }
+      }
+    }
+  }
+}

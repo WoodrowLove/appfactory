@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AppFactory One-Pager",
+  "type": "object",
+  "required": ["app_name", "tagline", "category", "target_user", "features", "screens", "monetization", "differentiation", "technical", "app_store"],
+  "properties": {
+    "app_name": { "type": "string", "maxLength": 30 },
+    "tagline": { "type": "string", "maxLength": 100 },
+    "category": { "type": "string" },
+    "target_user": {
+      "type": "object",
+      "required": ["persona", "pain_points"],
+      "properties": {
+        "persona": { "type": "string" },
+        "pain_points": { "type": "array", "items": { "type": "string" } },
+        "current_solutions": { "type": "array", "items": { "type": "string" } },
+        "why_they_fail": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "features": {
+      "type": "object",
+      "required": ["core", "premium"],
+      "properties": {
+        "core": { "type": "array", "items": { "type": "string" }, "minItems": 2 },
+        "premium": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "deferred": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "screens": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "purpose"],
+        "properties": {
+          "name": { "type": "string" },
+          "purpose": { "type": "string" },
+          "copy": { "type": "string" },
+          "elements": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "minItems": 5
+    },
+    "monetization": {
+      "type": "object",
+      "required": ["model", "price"],
+      "properties": {
+        "model": { "type": "string", "enum": ["freemium_subscription", "one_time_purchase", "consumable_iap"] },
+        "free_tier": { "type": "string" },
+        "premium_tier": { "type": "string" },
+        "price": { "type": "string" },
+        "annual_price": { "type": "string" },
+        "trial": { "type": "string" },
+        "rationale": { "type": "string" }
+      }
+    },
+    "differentiation": {
+      "type": "object",
+      "required": ["vs_competitors", "vs_our_catalog", "unique_angle"],
+      "properties": {
+        "vs_competitors": { "type": "string" },
+        "vs_our_catalog": { "type": "string" },
+        "unique_angle": { "type": "string" }
+      }
+    },
+    "technical": {
+      "type": "object",
+      "required": ["frameworks"],
+      "properties": {
+        "frameworks": { "type": "array", "items": { "type": "string" } },
+        "ai_integration": { "type": "string" },
+        "data_storage": { "type": "string" },
+        "min_ios": { "type": "string", "default": "17.0" },
+        "estimated_complexity": { "type": "string", "enum": ["simple", "medium", "complex"] }
+      }
+    },
+    "app_store": {
+      "type": "object",
+      "required": ["primary_category", "keywords", "age_rating"],
+      "properties": {
+        "primary_category": { "type": "string" },
+        "secondary_category": { "type": "string" },
+        "keywords": { "type": "array", "items": { "type": "string" } },
+        "age_rating": { "type": "string", "enum": ["4+", "9+", "12+", "17+"] }
+      }
+    }
+  }
+}

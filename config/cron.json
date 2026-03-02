@@ -1,0 +1,59 @@
+{
+  "version": "1.0",
+  "jobs": [
+    {
+      "name": "appfactory-router",
+      "description": "Main orchestrator - reads project states and routes to appropriate agents",
+      "schedule": "*/5 * * * *",
+      "command": "node scripts/router.js",
+      "enabled": true,
+      "timezone": "America/New_York",
+      "max_runtime_minutes": 10,
+      "on_failure": "log_and_continue",
+      "environment": {
+        "NODE_ENV": "production",
+        "APPFACTORY_ROOT": "."
+      }
+    },
+    {
+      "name": "marketing-scheduler",
+      "description": "Check marketing content schedule and trigger Marketer agent if content is due",
+      "schedule": "0 */6 * * *",
+      "command": "node scripts/marketing-scheduler.js",
+      "enabled": true,
+      "timezone": "America/New_York",
+      "max_runtime_minutes": 5,
+      "on_failure": "log_and_continue"
+    },
+    {
+      "name": "revenue-sync",
+      "description": "Pull latest revenue data from RevenueCat and update factory.db",
+      "schedule": "0 */4 * * *",
+      "command": "node scripts/revenue-sync.js",
+      "enabled": true,
+      "timezone": "America/New_York",
+      "max_runtime_minutes": 5,
+      "on_failure": "log_and_continue"
+    },
+    {
+      "name": "review-status-check",
+      "description": "Check App Store Connect for review status updates",
+      "schedule": "0 */2 * * *",
+      "command": "node scripts/review-status.js",
+      "enabled": true,
+      "timezone": "America/New_York",
+      "max_runtime_minutes": 5,
+      "on_failure": "log_and_continue"
+    },
+    {
+      "name": "daily-backup",
+      "description": "Backup factory.db and all state files",
+      "schedule": "0 3 * * *",
+      "command": "node scripts/backup.js",
+      "enabled": true,
+      "timezone": "America/New_York",
+      "max_runtime_minutes": 10,
+      "on_failure": "alert"
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AppFactory Project State",
+  "type": "object",
+  "required": ["slug", "app_name", "category", "phase", "status", "created_at", "updated_at"],
+  "properties": {
+    "slug": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "app_name": { "type": "string" },
+    "category": {
+      "type": "string",
+      "enum": ["health-fitness", "productivity", "personal-finance", "lifestyle", "education", "utilities"]
+    },
+    "phase": {
+      "type": "string",
+      "enum": ["queued", "research", "validation", "spec", "building", "reviewing", "revising", "monetizing", "packaging", "ready_to_ship", "in_review", "approved", "live", "rejected", "fixing", "flagged", "killed"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "paused", "killed", "live", "flagged"]
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "source": { "type": "string", "enum": ["research", "suggestion"] },
+    "phases_completed": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "completed_at": { "type": "string", "format": "date-time" },
+          "duration_seconds": { "type": "integer" }
+        }
+      }
+    },
+    "current_phase_started_at": { "type": "string", "format": "date-time" },
+    "review_history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "attempt": { "type": "integer" },
+          "score": { "type": "number", "minimum": 0, "maximum": 10 },
+          "passed": { "type": "boolean" },
+          "timestamp": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "submission": {
+      "type": "object",
+      "properties": {
+        "queued_at": { "type": ["string", "null"] },
+        "submitted_at": { "type": ["string", "null"] },
+        "review_result": { "type": ["string", "null"], "enum": ["approved", "rejected", null] },
+        "live_at": { "type": ["string", "null"] },
+        "rejection_count": { "type": "integer", "default": 0 },
+        "rejection_reasons": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "revenue": {
+      "type": "object",
+      "properties": {
+        "mrr": { "type": "number", "default": 0 },
+        "total_revenue": { "type": "number", "default": 0 },
+        "subscribers": { "type": "integer", "default": 0 },
+        "trial_starts": { "type": "integer", "default": 0 },
+        "last_updated": { "type": ["string", "null"] }
+      }
+    },
+    "flags": { "type": "array", "items": { "type": "string" } },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  }
+}

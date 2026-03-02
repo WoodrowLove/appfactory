@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+
+# Database
+factory.db
+factory.db-journal
+factory.db-wal
+
+# Logs
+logs/
+*.log
+
+# Build artifacts
+build/
+dist/
+.svelte-kit/
+
+# Xcode
+projects/*/src/*/DerivedData/
+projects/*/src/*/.build/
+*.xcuserdata
+*.xcworkspace
+
+# macOS
+.DS_Store
+*.swp
+
+# IPA binaries
+*.ipa
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/test_output
+
+# Attention queue (ephemeral)
+attention_queue.json
+
+# Backups
+backups/
+
+# IDE
+.vscode/
+.idea/

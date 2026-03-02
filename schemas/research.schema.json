@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AppFactory Research Output",
+  "type": "object",
+  "required": ["idea_slug", "category", "pain_points", "competitors", "scores"],
+  "properties": {
+    "idea_slug": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "category": { "type": "string" },
+    "subcategory": { "type": "string" },
+    "summary": { "type": "string", "maxLength": 500 },
+    "pain_points": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source", "summary"],
+        "properties": {
+          "source": { "type": "string", "enum": ["reddit", "x", "app_store_reviews", "product_hunt", "google_trends"] },
+          "subreddit": { "type": "string" },
+          "post_url": { "type": "string" },
+          "summary": { "type": "string" },
+          "upvotes": { "type": "integer" },
+          "comment_count": { "type": "integer" },
+          "sentiment": { "type": "string", "enum": ["negative", "mixed", "positive"] }
+        }
+      }
+    },
+    "competitors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "rating"],
+        "properties": {
+          "name": { "type": "string" },
+          "bundle_id": { "type": "string" },
+          "rating": { "type": "number" },
+          "review_count": { "type": "integer" },
+          "last_updated": { "type": "string" },
+          "price": { "type": "string" },
+          "weakness": { "type": "string" }
+        }
+      }
+    },
+    "keywords": {
+      "type": "object",
+      "properties": {
+        "primary": { "type": "string" },
+        "secondary": { "type": "array", "items": { "type": "string" } },
+        "search_volume_estimate": { "type": "string", "enum": ["low", "medium", "high"] },
+        "difficulty_estimate": { "type": "string", "enum": ["low", "medium", "high"] }
+      }
+    },
+    "scores": {
+      "type": "object",
+      "required": ["demand", "competition", "feasibility", "total"],
+      "properties": {
+        "demand": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "competition": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "feasibility": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "total": { "type": "integer", "minimum": 3, "maximum": 30 }
+      }
+    },
+    "differentiation_from_existing": { "type": "string" },
+    "technical_notes": { "type": "string" },
+    "monetization_hypothesis": { "type": "string" },
+    "researched_at": { "type": "string", "format": "date-time" },
+    "validated_at": { "type": ["string", "null"], "format": "date-time" }
+  }
+}
